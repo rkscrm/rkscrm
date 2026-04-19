@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Lato:wght@900&display=swap');</style>
+  </defs>
+  <!-- Tło czarne zaokrąglone -->
+  <rect x="0" y="0" width="512" height="512" rx="80" fill="#111111"/>
+  <!-- Górna strefa czerwona -->
+  <rect x="0" y="0" width="512" height="256" rx="80" fill="#CC0000"/>
+  <!-- Wypełnienie łączące strefy -->
+  <rect x="0" y="196" width="512" height="60" fill="#CC0000"/>
+  <!-- RKS -->
+  <text x="256" y="186" font-family="'Lato', Arial, sans-serif" font-size="180" font-weight="900" fill="white" text-anchor="middle">RKS</text>
+  <!-- HUB -->
+  <text x="256" y="420" font-family="'Lato', Arial, sans-serif" font-size="180" font-weight="900" fill="white" text-anchor="middle">HUB</text>
+</svg>
