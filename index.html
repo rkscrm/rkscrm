@@ -142,6 +142,49 @@ tr.clickable:hover td{background:rgba(212,168,67,.04);cursor:pointer;}
   .form-row{grid-template-columns:1fr;}
 }
 
+/* ── CALENDAR ── */
+.cal-handler-chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);color:var(--text2);transition:all .15s;}
+.cal-handler-chip.active{background:var(--surface2);border-color:var(--text3);color:var(--text);}
+.cal-handler-chip.h1-chip{border-color:rgba(212,168,67,.35);color:var(--accent);}
+.cal-handler-chip.h1-chip.active{background:var(--accent-dim);border-color:var(--accent);}
+.cal-handler-chip.h2-chip{border-color:rgba(85,153,232,.35);color:var(--blue);}
+.cal-handler-chip.h2-chip.active{background:var(--blue-dim);border-color:var(--blue);}
+.cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.cal-nav-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;line-height:1;}
+.cal-nav-btn:hover{background:var(--surface2);color:var(--accent);}
+.cal-today-btn{padding:6px 14px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
+.cal-today-btn:hover{border-color:var(--accent);color:var(--accent);}
+.cal-month-label{font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);min-width:180px;text-align:center;}
+.cal-grid-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--border);background:var(--surface2);}
+.cal-weekdays>div{padding:8px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:600;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.cal-cell{min-height:110px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px;cursor:pointer;transition:background .12s;position:relative;overflow:hidden;}
+.cal-cell:nth-child(7n){border-right:none;}
+.cal-cell:hover{background:rgba(212,168,67,.04);}
+.cal-cell.today{background:rgba(212,168,67,.07);}
+.cal-cell.today .cal-day-num{background:var(--accent);color:#0d0d0f;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
+.cal-cell.other-month .cal-day-num{color:var(--text3);}
+.cal-cell.selected{background:rgba(212,168,67,.1);outline:2px solid var(--accent);outline-offset:-2px;}
+.cal-day-num{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
+.cal-event{font-size:10px;padding:2px 6px;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;cursor:pointer;line-height:1.5;}
+.cal-event.h1{background:rgba(212,168,67,.18);color:var(--accent);}
+.cal-event.h2{background:rgba(85,153,232,.18);color:var(--blue);}
+.cal-event.both{background:rgba(82,199,122,.15);color:var(--green);}
+.cal-more{font-size:10px;color:var(--text3);padding:1px 4px;cursor:pointer;}
+.cal-day-panel{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-top:14px;}
+.cal-day-panel.open{display:block;}
+.cal-day-panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.cal-event-item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--surface2);border-radius:8px;margin-bottom:7px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s;}
+.cal-event-item:hover{border-color:var(--accent);}
+.cal-event-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+.cal-event-dot.h1{background:var(--accent);}
+.cal-event-dot.h2{background:var(--blue);}
+.cal-event-body{flex:1;}
+.cal-event-dealer{font-size:13px;font-weight:500;color:var(--text);}
+.cal-event-meta{font-size:11px;color:var(--text3);margin-top:2px;}
+.cal-event-note{font-size:12px;color:var(--text2);margin-top:4px;line-height:1.4;}
+
 #map .leaflet-popup-content-wrapper {
   background: #1e1e24;
   border: 1px solid #2a2a34;
@@ -167,7 +210,436 @@ tr.clickable:hover td{background:rgba(212,168,67,.04);cursor:pointer;}
 
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js">
+// ===== NEW MODULE STATE (initialized in state object above) =====
+
+// ===== HELPER =====
+function stars(n){ return n ? '⭐'.repeat(parseInt(n)) : '—'; }
+function plnFmt(v){ return v ? parseInt(v).toLocaleString('pl-PL') + ' zł' : '—'; }
+
+// ===== EKSPOZYCJA =====
+function openAddEkspo(dealerId){
+  populateDealerSelect('ek-dealer', dealerId||null);
+  ['ek-date','ek-produkty','ek-wytyczne','ek-ustalenia','ek-next','ek-mat-inne'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ek-ocena').value='';
+  ['ek-linia-prestige','ek-linia-industrial','ek-linia-pure','ek-linia-tenzo',
+   'ek-mat-katalog-otif','ek-mat-broszury-otif','ek-mat-katalog-tenzo','ek-mat-box-otif']
+    .forEach(id=>document.getElementById(id).checked=false);
+  openModal('modal-ekspo');
+}
+function saveEkspo(){
+  const dealerId = parseInt(document.getElementById('ek-dealer').value);
+  if(!dealerId || !document.getElementById('ek-date').value) return alert('Wypełnij salon i datę.');
+  const linie = ['prestige','industrial','pure','tenzo'].filter(l=>document.getElementById('ek-linia-'+l).checked);
+  const materialy = {
+    katalogOtif: document.getElementById('ek-mat-katalog-otif').checked,
+    broszuryOtif: document.getElementById('ek-mat-broszury-otif').checked,
+    katalogTenzo: document.getElementById('ek-mat-katalog-tenzo').checked,
+    boxOtif: document.getElementById('ek-mat-box-otif').checked,
+    inne: document.getElementById('ek-mat-inne').value
+  };
+  const hasTenzo = linie.includes('tenzo');
+  const obj = {
+    id: state.nextId.ekspo++,
+    dealerId,
+    date: document.getElementById('ek-date').value,
+    linie,
+    produkty: document.getElementById('ek-produkty').value,
+    ocena: document.getElementById('ek-ocena').value,
+    tenzo: hasTenzo ? 'tak' : 'nie',
+    materialy,
+    wytyczne: document.getElementById('ek-wytyczne').value,
+    ustalenia: document.getElementById('ek-ustalenia').value,
+    next: document.getElementById('ek-next').value
+  };
+  state.ekspozycje.push(obj);
+  closeModal('modal-ekspo');
+  renderEkspozycja();
+  if(state.currentDealerId) renderDrawerTab(state.currentDrawerTab||'info');
+}
+function renderEkspozycja(){
+  const el = document.getElementById('ekspo-list');
+  if(!el) return;
+  const list = [...state.ekspozycje].sort((a,b)=>b.date.localeCompare(a.date))
+    .filter(e => state.view==='all' || state.dealers.find(d=>d.id===e.dealerId)?.handler===state.view);
+  if(!list.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">🖼️</div><div class="empty-text">Brak inwentaryzacji ekspozycji</div></div>'; return; }
+  
+  // Summary stats
+  const totalSalons = new Set(list.map(e=>e.dealerId)).size;
+  const withTenzo = list.filter(e=>e.tenzo==='tak').length;
+  const noTenzo = list.filter(e=>e.tenzo==='nie').length;
+  const needsWork = list.filter(e=>parseInt(e.ocena)<=2).length;
+  
+  const linieStats = {prestige:0,industrial:0,pure:0,tenzo:0};
+  list.forEach(e=>(e.linie||[]).forEach(l=>{ if(linieStats[l]!==undefined) linieStats[l]++; }));
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      <div class="stat-card"><div class="stat-label">Salonów z inwentaryzacją</div><div class="stat-value">${totalSalons}</div></div>
+      <div class="stat-card"><div class="stat-label">Z Tenzo na expo</div><div class="stat-value" style="color:#7B2D8B">${withTenzo}</div></div>
+      <div class="stat-card"><div class="stat-label">Bez Tenzo</div><div class="stat-value" style="color:var(--text2)">${noTenzo}</div></div>
+      <div class="stat-card"><div class="stat-label">Wymaga pilnej poprawy</div><div class="stat-value" style="color:var(--red)">${needsWork}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:var(--text2);margin-bottom:4px">Prestige na expo</div><div style="font-size:20px;font-weight:700">${linieStats.prestige}</div></div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:var(--text2);margin-bottom:4px">Industrial na expo</div><div style="font-size:20px;font-weight:700">${linieStats.industrial}</div></div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:var(--text2);margin-bottom:4px">Pure na expo</div><div style="font-size:20px;font-weight:700">${linieStats.pure}</div></div>
+      <div style="background:var(--surface2);border:1px solid rgba(123,45,139,.3);border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:#7B2D8B;margin-bottom:4px">Tenzo na expo ★</div><div style="font-size:20px;font-weight:700;color:#7B2D8B">${linieStats.tenzo}</div></div>
+    </div>
+    <div style="overflow-x:auto"><table class="data-table"><thead><tr>
+      <th>Data</th><th>Salon</th><th>RKS</th><th>Linie produktowe</th><th>Materiały</th><th>Ocena</th><th>Wytyczne</th><th>Następny przegląd</th>
+    </tr></thead><tbody>
+    ${list.map(e=>{
+      const d = state.dealers.find(x=>x.id===e.dealerId);
+      const today = new Date().toISOString().slice(0,10);
+      const overdue = e.next && e.next < today;
+      const linieHtml = (e.linie||[]).map(l=>`<span style="padding:2px 6px;border-radius:10px;font-size:10px;margin-right:3px;background:${l==='tenzo'?'rgba(123,45,139,.15)':'var(--surface2)'};color:${l==='tenzo'?'#7B2D8B':'var(--text2)'}">${l.charAt(0).toUpperCase()+l.slice(1)}</span>`).join('') || '—';
+      const mat = e.materialy||{};
+      const matItems = [mat.katalogOtif?'📗':'',mat.broszuryOtif?'📄':'',mat.katalogTenzo?'📘':'',mat.boxOtif?'📦':''].filter(Boolean).join(' ');
+      const matText = matItems + (mat.inne?` +inne`:'');
+      return \`<tr>
+        <td style="font-size:12px">\${formatDate(e.date)}</td>
+        <td><div style="font-weight:500;font-size:13px;cursor:pointer;color:var(--accent)" onclick="openDealer(\${e.dealerId})">\${d?.name||'—'}</div></td>
+        <td><span class="h-tag \${d?.handler||''}">\${d?.rks||'—'}</span></td>
+        <td>\${linieHtml}<div style="font-size:11px;color:var(--text3);margin-top:3px">\${e.produkty||''}</div></td>
+        <td style="font-size:12px">\${matText||'—'}</td>
+        <td>\${stars(e.ocena)}</td>
+        <td style="font-size:12px;max-width:200px">\${e.wytyczne||'—'}</td>
+        <td style="font-size:12px;color:\${overdue?'var(--red)':'var(--text2)'}">\${e.next?formatDate(e.next):'—'}\${overdue?' ⚠️':''}</td>
+      </tr>\`;
+    }).join('')}
+    </tbody></table></div>`;
+}
+
+// ===== SZKOLENIA =====
+function openAddSzkolenie(dealerId){
+  populateDealerSelect('sz-dealer', dealerId||null);
+  ['sz-date','sz-temat','sz-osoby','sz-notatka','sz-next'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sz-uczestnicy').value='';
+  document.getElementById('sz-ocena').value='';
+  openModal('modal-szkolenie');
+}
+function saveSzkolenie(){
+  const dealerId = parseInt(document.getElementById('sz-dealer').value);
+  if(!dealerId || !document.getElementById('sz-date').value) return alert('Wypełnij salon i datę.');
+  const obj = {
+    id: state.nextId.szkolenie++,
+    dealerId,
+    date: document.getElementById('sz-date').value,
+    temat: document.getElementById('sz-temat').value,
+    uczestnicy: document.getElementById('sz-uczestnicy').value,
+    osoby: document.getElementById('sz-osoby').value,
+    ocena: document.getElementById('sz-ocena').value,
+    notatka: document.getElementById('sz-notatka').value,
+    next: document.getElementById('sz-next').value
+  };
+  state.szkolenia.push(obj);
+  closeModal('modal-szkolenie');
+  renderSzkolenia();
+}
+function renderSzkolenia(){
+  const el = document.getElementById('szkolenia-list');
+  if(!el) return;
+  const list = [...state.szkolenia].sort((a,b)=>b.date.localeCompare(a.date))
+    .filter(e => state.view==='all' || state.dealers.find(d=>d.id===e.dealerId)?.handler===state.view);
+  
+  // Find salons with no training in last 6 months
+  const today = new Date().toISOString().slice(0,10);
+  const sixMonthsAgo = new Date(Date.now()-6*30*24*3600*1000).toISOString().slice(0,10);
+  const trainedRecently = new Set(list.filter(e=>e.date>=sixMonthsAgo).map(e=>e.dealerId));
+  const activeCount = state.dealers.filter(d=>d.status==='active'&&(state.view==='all'||d.handler===state.view)).length;
+  const alertCount = activeCount - trainedRecently.size;
+  
+  if(!list.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">🎓</div><div class="empty-text">Brak szkoleń w systemie</div></div>'; return; }
+  
+  const totalUcz = list.reduce((s,e)=>s+(parseInt(e.uczestnicy)||0),0);
+  
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      <div class="stat-card"><div class="stat-label">Szkoleń łącznie</div><div class="stat-value">${list.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Przeszkolonych osób</div><div class="stat-value" style="color:var(--green)">${totalUcz}</div></div>
+      <div class="stat-card"><div class="stat-label">Salonów bez szkolenia 6 mies.</div><div class="stat-value" style="color:${alertCount>5?'var(--red)':'var(--accent)'}">${alertCount}</div></div>
+      <div class="stat-card"><div class="stat-label">Ostatnie szkolenie</div><div class="stat-value" style="font-size:16px">${list[0]?formatDate(list[0].date):'—'}</div></div>
+    </div>
+    <div style="overflow-x:auto"><table class="data-table"><thead><tr>
+      <th>Data</th><th>Salon</th><th>RKS</th><th>Temat</th><th>Uczestnicy</th><th>Kto</th><th>Ocena</th><th>Następne</th>
+    </tr></thead><tbody>
+    ${list.map(e=>{
+      const d = state.dealers.find(x=>x.id===e.dealerId);
+      const overdue = e.next && e.next < today;
+      return `<tr>
+        <td style="font-size:12px">${formatDate(e.date)}</td>
+        <td><div style="font-weight:500;font-size:13px;cursor:pointer;color:var(--accent)" onclick="openDealer(${e.dealerId})">${d?.name||'—'}</div></td>
+        <td><span class="h-tag ${d?.handler||''}">${d?.rks||'—'}</span></td>
+        <td style="font-size:12px">${e.temat||'—'}</td>
+        <td style="text-align:center">${e.uczestnicy||'—'}</td>
+        <td style="font-size:12px">${e.osoby||'—'}</td>
+        <td>${stars(e.ocena)}</td>
+        <td style="font-size:12px;color:${overdue?'var(--red)':'var(--text2)'}">${e.next?formatDate(e.next):'—'}${overdue?' ⚠️':''}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+}
+
+// ===== ARCHITEKCI =====
+function openAddArchitekt(dealerId){
+  populateDealerSelect('ar-dealer', dealerId||null);
+  ['ar-date','ar-temat','ar-notatka','ar-efekt'].forEach(id=>document.getElementById(id).value='');
+  ['ar-architekci','ar-koszt-catering','ar-koszt-mat','ar-koszt-dojazd','ar-koszt-inne'].forEach(id=>document.getElementById(id).value='');
+  openModal('modal-architekt');
+}
+function saveArchitekt(){
+  const dealerId = parseInt(document.getElementById('ar-dealer').value);
+  if(!dealerId || !document.getElementById('ar-date').value) return alert('Wypełnij salon i datę.');
+  const catering = parseFloat(document.getElementById('ar-koszt-catering').value)||0;
+  const mat = parseFloat(document.getElementById('ar-koszt-mat').value)||0;
+  const dojazd = parseFloat(document.getElementById('ar-koszt-dojazd').value)||0;
+  const inne = parseFloat(document.getElementById('ar-koszt-inne').value)||0;
+  const obj = {
+    id: state.nextId.architekt++,
+    dealerId,
+    date: document.getElementById('ar-date').value,
+    handler: document.getElementById('ar-handler').value,
+    architekci: parseInt(document.getElementById('ar-architekci').value)||0,
+    temat: document.getElementById('ar-temat').value,
+    kosztCatering: catering, kosztMat: mat, kosztDojazd: dojazd, kosztInne: inne,
+    kosztTotal: catering+mat+dojazd+inne,
+    notatka: document.getElementById('ar-notatka').value,
+    efekt: document.getElementById('ar-efekt').value
+  };
+  state.architekci.push(obj);
+  closeModal('modal-architekt');
+  renderArchitekci();
+}
+function renderArchitekci(){
+  const el = document.getElementById('architekci-list');
+  if(!el) return;
+  const list = [...state.architekci].sort((a,b)=>b.date.localeCompare(a.date))
+    .filter(e => state.view==='all' || e.handler===state.view);
+  
+  if(!list.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">🏛️</div><div class="empty-text">Brak spotkań z architektami</div></div>'; return; }
+  
+  const totalKoszt = list.reduce((s,e)=>s+(e.kosztTotal||0),0);
+  const totalArch = list.reduce((s,e)=>s+(e.architekci||0),0);
+  const avgKoszt = list.length ? Math.round(totalKoszt/list.length) : 0;
+  
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      <div class="stat-card"><div class="stat-label">Spotkań łącznie</div><div class="stat-value">${list.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Architektów łącznie</div><div class="stat-value" style="color:var(--accent)">${totalArch}</div></div>
+      <div class="stat-card"><div class="stat-label">Łączny koszt</div><div class="stat-value" style="font-size:18px;color:var(--red)">${totalKoszt.toLocaleString('pl-PL')} zł</div></div>
+      <div class="stat-card"><div class="stat-label">Śr. koszt spotkania</div><div class="stat-value" style="font-size:18px">${avgKoszt.toLocaleString('pl-PL')} zł</div></div>
+    </div>
+    <div style="overflow-x:auto"><table class="data-table"><thead><tr>
+      <th>Data</th><th>Salon</th><th>RKS</th><th>Architekci</th><th>Temat</th><th>Koszty</th><th>Efekt</th>
+    </tr></thead><tbody>
+    ${list.map(e=>{
+      const d = state.dealers.find(x=>x.id===e.dealerId);
+      const costBreakdown = [
+        e.kosztCatering?'🍽 '+e.kosztCatering.toLocaleString('pl-PL')+'zł':'',
+        e.kosztMat?'📦 '+e.kosztMat.toLocaleString('pl-PL')+'zł':'',
+        e.kosztDojazd?'🚗 '+e.kosztDojazd.toLocaleString('pl-PL')+'zł':'',
+        e.kosztInne?'➕ '+e.kosztInne.toLocaleString('pl-PL')+'zł':''
+      ].filter(Boolean).join(' ');
+      return `<tr>
+        <td style="font-size:12px">${formatDate(e.date)}</td>
+        <td><div style="font-weight:500;font-size:13px;cursor:pointer;color:var(--accent)" onclick="openDealer(${e.dealerId})">${d?.name||'—'}</div></td>
+        <td><span class="h-tag ${e.handler}">${e.handler==='h1'?'Polus':'Żywicki'}</span></td>
+        <td style="text-align:center;font-weight:600">${e.architekci||'—'}</td>
+        <td style="font-size:12px">${e.temat||'—'}</td>
+        <td><div style="font-weight:600;color:${e.kosztTotal>1000?'var(--red)':'var(--text)'}">${e.kosztTotal.toLocaleString('pl-PL')} zł</div><div style="font-size:11px;color:var(--text2)">${costBreakdown}</div></td>
+        <td style="font-size:12px;max-width:180px">${e.efekt||'<span style="color:var(--text3)">brak oceny</span>'}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+}
+
+// ===== KOSZTY WYJAZDÓW =====
+function openAddKoszt(){
+  ['ko-date','ko-salony','ko-notatka'].forEach(id=>document.getElementById(id).value='');
+  ['ko-wizyty','ko-nocleg','ko-paliwo','ko-drogi','ko-diety','ko-wartosc'].forEach(id=>document.getElementById(id).value='');
+  openModal('modal-koszt');
+}
+function saveKoszt(){
+  if(!document.getElementById('ko-date').value) return alert('Podaj datę wyjazdu.');
+  const nocleg = parseFloat(document.getElementById('ko-nocleg').value)||0;
+  const paliwo = parseFloat(document.getElementById('ko-paliwo').value)||0;
+  const drogi = parseFloat(document.getElementById('ko-drogi').value)||0;
+  const diety = parseFloat(document.getElementById('ko-diety').value)||0;
+  const obj = {
+    id: state.nextId.koszt++,
+    handler: document.getElementById('ko-handler').value,
+    date: document.getElementById('ko-date').value,
+    salony: document.getElementById('ko-salony').value,
+    wizyty: parseInt(document.getElementById('ko-wizyty').value)||0,
+    nocleg, paliwo, drogi, diety,
+    total: nocleg+paliwo+drogi+diety,
+    wartosc: parseFloat(document.getElementById('ko-wartosc').value)||0,
+    notatka: document.getElementById('ko-notatka').value
+  };
+  state.koszty.push(obj);
+  closeModal('modal-koszt');
+  renderKoszty();
+}
+function renderKoszty(){
+  const el = document.getElementById('koszty-list');
+  const sumEl = document.getElementById('koszty-summary');
+  if(!el) return;
+  const list = [...state.koszty].sort((a,b)=>b.date.localeCompare(a.date))
+    .filter(e => state.view==='all' || e.handler===state.view);
+  
+  // Per-handler breakdown
+  const byHandler = {h1:{total:0,nocleg:0,wizyty:0,wartosc:0,trips:0}, h2:{total:0,nocleg:0,wizyty:0,wartosc:0,trips:0}};
+  list.forEach(e=>{ if(byHandler[e.handler]){
+    byHandler[e.handler].total+=e.total; byHandler[e.handler].nocleg+=e.nocleg;
+    byHandler[e.handler].wizyty+=e.wizyty; byHandler[e.handler].wartosc+=e.wartosc;
+    byHandler[e.handler].trips++;
+  }});
+  
+  const grandTotal = list.reduce((s,e)=>s+e.total,0);
+  const grandNocleg = list.reduce((s,e)=>s+e.nocleg,0);
+  const grandWartosc = list.reduce((s,e)=>s+e.wartosc,0);
+  const roi = grandWartosc>0&&grandTotal>0 ? (grandWartosc/grandTotal).toFixed(1)+'x' : '—';
+  
+  if(sumEl) sumEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      <div class="stat-card"><div class="stat-label">Łączne koszty</div><div class="stat-value" style="color:var(--red)">${grandTotal.toLocaleString('pl-PL')} zł</div></div>
+      <div class="stat-card"><div class="stat-label">Z czego noclegi</div><div class="stat-value" style="color:var(--red);font-size:18px">${grandNocleg.toLocaleString('pl-PL')} zł</div><div class="stat-sub">${grandTotal>0?Math.round(grandNocleg/grandTotal*100):0}% budżetu</div></div>
+      <div class="stat-card"><div class="stat-label">Wartość zleceń z wyjazdów</div><div class="stat-value" style="color:var(--green)">${grandWartosc.toLocaleString('pl-PL')} zł</div></div>
+      <div class="stat-card"><div class="stat-label">ROI wyjazdów</div><div class="stat-value" style="color:var(--accent)">${roi}</div><div class="stat-sub">wartość / koszt</div></div>
+    </div>
+    ${state.view==='all'?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px">POLUS — H1</div>
+        <div style="font-size:12px;color:var(--text2)">Wyjazdów: ${byHandler.h1.trips} | Wizyt: ${byHandler.h1.wizyty}</div>
+        <div style="font-size:12px;color:var(--red);margin-top:4px">Koszty: ${byHandler.h1.total.toLocaleString('pl-PL')} zł (noclegi: ${byHandler.h1.nocleg.toLocaleString('pl-PL')} zł)</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">ŻYWICKI — H2</div>
+        <div style="font-size:12px;color:var(--text2)">Wyjazdów: ${byHandler.h2.trips} | Wizyt: ${byHandler.h2.wizyty}</div>
+        <div style="font-size:12px;color:var(--red);margin-top:4px">Koszty: ${byHandler.h2.total.toLocaleString('pl-PL')} zł (noclegi: ${byHandler.h2.nocleg.toLocaleString('pl-PL')} zł)</div>
+      </div>
+    </div>`:''}`;
+
+  if(!list.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">Brak zaewidencjonowanych wyjazdów</div></div>'; return; }
+  
+  el.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
+    <th>Data</th><th>RKS</th><th>Salony</th><th>Wizyty</th><th>Nocleg</th><th>Paliwo</th><th>Razem koszt</th><th>Wartość zleceń</th><th>ROI</th>
+  </tr></thead><tbody>
+  ${list.map(e=>{
+    const roi = e.wartosc>0&&e.total>0 ? (e.wartosc/e.total).toFixed(1)+'x' : '—';
+    return `<tr>
+      <td style="font-size:12px">${formatDate(e.date)}</td>
+      <td><span class="h-tag ${e.handler}">${e.handler==='h1'?'Polus':'Żywicki'}</span></td>
+      <td style="font-size:12px;max-width:180px">${e.salony||'—'}</td>
+      <td style="text-align:center">${e.wizyty||'—'}</td>
+      <td style="color:${e.nocleg>300?'var(--red)':'var(--text)'}">${e.nocleg?e.nocleg.toLocaleString('pl-PL')+' zł':'—'}</td>
+      <td>${e.paliwo?e.paliwo.toLocaleString('pl-PL')+' zł':'—'}</td>
+      <td style="font-weight:600">${e.total.toLocaleString('pl-PL')} zł</td>
+      <td style="color:var(--green)">${e.wartosc?e.wartosc.toLocaleString('pl-PL')+' zł':'—'}</td>
+      <td style="font-weight:600;color:${roi==='—'?'var(--text2)':parseFloat(roi)>=3?'var(--green)':parseFloat(roi)>=1?'var(--accent)':'var(--red)'}">${roi}</td>
+    </tr>`;
+  }).join('')}
+  </tbody></table></div>`;
+}
+
+// ===== HOOK INTO RENDERERS =====
+const _origRenderAll = renderAll;
+function renderAll(){
+  _origRenderAll();
+  if(document.getElementById('page-ekspozycja')?.classList.contains('active')) renderEkspozycja();
+  if(document.getElementById('page-szkolenia')?.classList.contains('active')) renderSzkolenia();
+  if(document.getElementById('page-architekci')?.classList.contains('active')) renderArchitekci();
+  if(document.getElementById('page-koszty')?.classList.contains('active')) renderKoszty();
+}
+
+// ===== DRAWER: NEW TABS =====
+// Extend openDealer to include new tabs
+const _origOpenDealer = openDealer;
+function openDealer(id){
+  state.currentDealerId = id;
+  const d = state.dealers.find(x=>x.id===id);
+  document.getElementById('d-name').textContent = d.name;
+  document.getElementById('d-sub').textContent = `${d.city} · ${d.woj} · ${d.handler.toUpperCase()}`;
+  document.querySelectorAll('.drawer .tab').forEach((t,i)=>t.classList.toggle('active',i===0));
+  ['info','visits','tasks','ekspo','szkolenie','architekt'].forEach((t,i)=>{
+    const el=document.getElementById('dtab-'+t);
+    if(el) el.style.display = i===0?'block':'none';
+  });
+  renderDrawerTab('info');
+  document.getElementById('drawer-overlay').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+}
+
+// Extend showDrawerTab
+const _origShowDrawerTab = showDrawerTab;
+function showDrawerTab(tab,btn){
+  ['info','visits','tasks','ekspo','szkolenie','architekt'].forEach(t=>{
+    const el=document.getElementById('dtab-'+t);
+    if(el) el.style.display = t===tab?'block':'none';
+  });
+  document.querySelectorAll('.drawer .tab').forEach(t=>t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  state.currentDrawerTab = tab;
+  renderDrawerTab(tab);
+}
+
+// Extend renderDrawerTab
+const _origRenderDrawerTab = renderDrawerTab;
+function renderDrawerTab(tab){
+  _origRenderDrawerTab(tab);
+  const id = state.currentDealerId;
+  if(!id) return;
+
+  if(tab==='ekspo'){
+    const list = state.ekspozycje.filter(e=>e.dealerId===id).sort((a,b)=>b.date.localeCompare(a.date));
+    const el = document.getElementById('dtab-ekspo');
+    if(!el) return;
+    el.innerHTML = `<div style="margin-bottom:12px"><button class="btn btn-primary btn-sm" onclick="openAddEkspo(${id})">+ Dodaj inwentaryzację</button></div>
+    ${list.length ? list.map(e=>`
+      <div class="visit-card">
+        <div class="visit-top"><span class="visit-date">${formatDate(e.date)}</span><span class="visit-who">Ocena: ${stars(e.ocena)||'—'} · Tenzo: ${e.tenzo}</span></div>
+        ${e.produkty?`<div class="visit-note">📦 ${e.produkty}</div>`:''}
+        ${e.wytyczne?`<div class="visit-note" style="color:var(--red)">⚠️ ${e.wytyczne}</div>`:''}
+        ${e.ustalenia?`<div class="visit-note" style="color:var(--green)">✅ ${e.ustalenia}</div>`:''}
+        ${e.next?`<div style="margin-top:6px;font-size:11px;color:var(--text3)">Następny przegląd: ${formatDate(e.next)}</div>`:''}
+      </div>`).join('') : '<div class="empty-state"><div class="empty-icon">🖼️</div><div class="empty-text">Brak inwentaryzacji</div></div>'}`;
+  }
+
+  if(tab==='szkolenie'){
+    const list = state.szkolenia.filter(e=>e.dealerId===id).sort((a,b)=>b.date.localeCompare(a.date));
+    const el = document.getElementById('dtab-szkolenie');
+    if(!el) return;
+    el.innerHTML = `<div style="margin-bottom:12px"><button class="btn btn-primary btn-sm" onclick="openAddSzkolenie(${id})">+ Dodaj szkolenie</button></div>
+    ${list.length ? list.map(e=>`
+      <div class="visit-card">
+        <div class="visit-top"><span class="visit-date">${formatDate(e.date)}</span><span class="visit-who">${e.uczestnicy||0} osób · ${stars(e.ocena)||'—'}</span></div>
+        ${e.temat?`<div class="visit-note">📚 ${e.temat}</div>`:''}
+        ${e.osoby?`<div class="visit-note" style="color:var(--text2)">👥 ${e.osoby}</div>`:''}
+        ${e.notatka?`<div class="visit-note">${e.notatka}</div>`:''}
+        ${e.next?`<div style="margin-top:6px;font-size:11px;color:var(--text3)">Następne: ${formatDate(e.next)}</div>`:''}
+      </div>`).join('') : '<div class="empty-state"><div class="empty-icon">🎓</div><div class="empty-text">Brak szkoleń</div></div>'}`;
+  }
+
+  if(tab==='architekt'){
+    const list = state.architekci.filter(e=>e.dealerId===id).sort((a,b)=>b.date.localeCompare(a.date));
+    const el = document.getElementById('dtab-architekt');
+    if(!el) return;
+    const totalKoszt = list.reduce((s,e)=>s+(e.kosztTotal||0),0);
+    el.innerHTML = `<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+      <button class="btn btn-primary btn-sm" onclick="openAddArchitekt(${id})">+ Dodaj spotkanie</button>
+      ${list.length?`<span style="font-size:12px;color:var(--text2)">Łączny koszt: <b style="color:var(--red)">${totalKoszt.toLocaleString('pl-PL')} zł</b></span>`:''}
+    </div>
+    ${list.length ? list.map(e=>`
+      <div class="visit-card">
+        <div class="visit-top"><span class="visit-date">${formatDate(e.date)}</span><span class="visit-who">${e.architekci} architektów · ${e.kosztTotal.toLocaleString('pl-PL')} zł</span></div>
+        ${e.temat?`<div class="visit-note">🏛️ ${e.temat}</div>`:''}
+        ${e.notatka?`<div class="visit-note">${e.notatka}</div>`:''}
+        ${e.efekt?`<div class="visit-note" style="color:var(--green)">📈 Efekt: ${e.efekt}</div>`:'<div class="visit-note" style="color:var(--text3)">Efekt: nieoceniony</div>'}
+      </div>`).join('') : '<div class="empty-state"><div class="empty-icon">🏛️</div><div class="empty-text">Brak spotkań</div></div>'}`;
+  }
+}
+
+</script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 /* ── LOGIN SCREEN ── */
@@ -358,6 +830,12 @@ tr.clickable:hover td{background:rgba(212,168,67,.04);cursor:pointer;}
     <div class="nav-item" onclick="showPage('tasks',this)"><span class="nav-icon">✅</span><span>Zadania</span></div>
     <div class="nav-item" onclick="showPage('stats',this)"><span class="nav-icon">📊</span><span>Statystyki</span></div>
     <div class="nav-item" onclick="showPage('mapa',this)"><span class="nav-icon">🗺️</span><span>Mapa</span></div>
+    <div class="nav-item" onclick="showPage('kalendarz',this)"><span class="nav-icon">📅</span><span>Kalendarz</span></div>
+    <div class="nav-section">Jakość obsługi</div>
+    <div class="nav-item" onclick="showPage('ekspozycja',this)"><span class="nav-icon">🖼️</span><span>Ekspozycja</span></div>
+    <div class="nav-item" onclick="showPage('szkolenia',this)"><span class="nav-icon">🎓</span><span>Szkolenia</span></div>
+    <div class="nav-item" onclick="showPage('architekci',this)"><span class="nav-icon">🏛️</span><span>Architekci</span></div>
+    <div class="nav-item" onclick="showPage('koszty',this)"><span class="nav-icon">💰</span><span>Koszty wyjazdów</span></div>
   </nav>
   <div class="sidebar-footer">
     <div id="user-chip-wrap" style="margin-bottom:12px"></div>
@@ -423,12 +901,31 @@ tr.clickable:hover td{background:rgba(212,168,67,.04);cursor:pointer;}
   <!-- STATYSTYKI -->
   <div class="page" id="page-stats">
     <div class="page-header"><div><div class="page-title">Statystyki</div><div class="page-subtitle">Przegląd wyników zespołu</div></div></div>
-    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+
+    <!-- Okres -->
+    <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+      <button class="btn btn-sm" id="period-week" onclick="setStatsPeriod('week',this)" style="font-size:12px">Ten tydzień</button>
+      <button class="btn btn-primary btn-sm" id="period-month" onclick="setStatsPeriod('month',this)" style="font-size:12px">Ten miesiąc</button>
+      <button class="btn btn-sm" id="period-quarter" onclick="setStatsPeriod('quarter',this)" style="font-size:12px">Ten kwartał</button>
+      <button class="btn btn-sm" id="period-year" onclick="setStatsPeriod('year',this)" style="font-size:12px">Ten rok</button>
+    </div>
+
+    <!-- Karty per RKS -->
+    <div id="stats-rks-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px"><div></div><div></div></div>
+
+    <!-- Aktywność -->
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
       <div class="stat-card"><div class="stat-label">Wizyty w tym miesiącu</div><div class="stat-value" id="st-visits">0</div></div>
       <div class="stat-card"><div class="stat-label">Zadania otwarte</div><div class="stat-value" style="color:var(--orange)" id="st-tasks-open">0</div></div>
       <div class="stat-card"><div class="stat-label">Zadania zakończone</div><div class="stat-value" style="color:var(--green)" id="st-tasks-done">0</div></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:4px">
+
+    <!-- Sieci -->
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">Sieci handlowe</div>
+    <div id="stats-networks" style="margin-bottom:24px"></div>
+
+    <!-- Per handlowiec -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
       <div>
         <div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:10px">🏅 Polus <span style="font-size:10px;color:var(--text3);font-weight:400">(CS: Kasia)</span></div>
         <div class="table-wrap"><table><thead><tr><th>Dealer</th><th>Wizyty</th><th>Obrót</th><th>Plan %</th></tr></thead><tbody id="stats-h1-tbody"></tbody></table></div>
@@ -491,6 +988,88 @@ tr.clickable:hover td{background:rgba(212,168,67,.04);cursor:pointer;}
     </div>
   </div>
 
+  <!-- KALENDARZ -->
+  <div class="page" id="page-kalendarz">
+    <div class="page-header">
+      <div><div class="page-title">Kalendarz wizyt</div><div class="page-subtitle" id="cal-subtitle">Planowanie i przegląd wizyt</div></div>
+      <div class="header-actions">
+        <div style="display:flex;gap:6px;align-items:center">
+          <div class="cal-handler-chip active" id="cal-chip-all" onclick="setCalView('all',this)">Wszyscy</div>
+          <div class="cal-handler-chip h1-chip" id="cal-chip-h1" onclick="setCalView('h1',this)">Polus</div>
+          <div class="cal-handler-chip h2-chip" id="cal-chip-h2" onclick="setCalView('h2',this)">Żywicki</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddVisitGlobal()">+ Dodaj wizytę</button>
+      </div>
+    </div>
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calPrevMonth()">‹</button>
+      <button class="cal-today-btn" onclick="calGoToday()">Dzisiaj</button>
+      <div class="cal-month-label" id="cal-month-label">kwiecień 2026</div>
+      <button class="cal-nav-btn" onclick="calNextMonth()">›</button>
+    </div>
+    <div class="cal-grid-wrap">
+      <div class="cal-weekdays">
+        <div>Pon</div><div>Wt</div><div>Śr</div><div>Czw</div><div>Pt</div><div>Sob</div><div>Nd</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+    <div class="cal-day-panel" id="cal-day-panel">
+      <div class="cal-day-panel-header">
+        <div id="cal-day-title" style="font-family:'DM Serif Display',serif;font-size:16px"></div>
+        <button class="close-btn" onclick="closeCalDay()">✕</button>
+      </div>
+      <div id="cal-day-events"></div>
+      <div style="margin-top:12px">
+        <button class="btn btn-primary btn-sm" style="width:100%" onclick="openAddVisitOnDate()">+ Dodaj wizytę tego dnia</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ===== EKSPOZYCJA ===== -->
+  <div class="page" id="page-ekspozycja">
+    <div class="page-header">
+      <div><div class="page-title">Ekspozycja</div><div class="page-subtitle">Inwentaryzacja i wytyczne dla salonów</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openAddEkspo()">+ Dodaj inwentaryzację</button>
+      </div>
+    </div>
+    <div id="ekspo-list"></div>
+  </div>
+
+  <!-- ===== SZKOLENIA ===== -->
+  <div class="page" id="page-szkolenia">
+    <div class="page-header">
+      <div><div class="page-title">Szkolenia</div><div class="page-subtitle">Historia i planowanie szkoleń w salonach</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openAddSzkolenie()">+ Dodaj szkolenie</button>
+      </div>
+    </div>
+    <div id="szkolenia-list"></div>
+  </div>
+
+  <!-- ===== ARCHITEKCI ===== -->
+  <div class="page" id="page-architekci">
+    <div class="page-header">
+      <div><div class="page-title">Spotkania z architektami</div><div class="page-subtitle">Eventy, koszty i przełożenie na sprzedaż</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openAddArchitekt()">+ Dodaj spotkanie</button>
+      </div>
+    </div>
+    <div id="architekci-list"></div>
+  </div>
+
+  <!-- ===== KOSZTY WYJAZDÓW ===== -->
+  <div class="page" id="page-koszty">
+    <div class="page-header">
+      <div><div class="page-title">Koszty wyjazdów</div><div class="page-subtitle">Noclegi, przejazdy — ROI wizyt</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openAddKoszt()">+ Dodaj wyjazd</button>
+      </div>
+    </div>
+    <div id="koszty-summary" style="margin-bottom:20px"></div>
+    <div id="koszty-list"></div>
+  </div>
 </main>
 </div>
 
@@ -502,13 +1081,19 @@ tr.clickable:hover td{background:rgba(212,168,67,.04);cursor:pointer;}
     <button class="close-btn" onclick="closeDrawer()">✕</button>
   </div>
   <div class="drawer-body">
-    <div class="tabs">
+    <div class="tabs" style="flex-wrap:wrap;gap:4px">
       <div class="tab active" onclick="showDrawerTab('info',this)">Informacje</div>
       <div class="tab" onclick="showDrawerTab('visits',this)">Wizyty</div>
       <div class="tab" onclick="showDrawerTab('tasks',this)">Zadania</div>
+      <div class="tab" onclick="showDrawerTab('ekspo',this)">🖼️ Expo</div>
+      <div class="tab" onclick="showDrawerTab('szkolenie',this)">🎓 Szkolenia</div>
+      <div class="tab" onclick="showDrawerTab('architekt',this)">🏛️ Architekci</div>
     </div>
     <div id="dtab-info"></div>
     <div id="dtab-visits" style="display:none"></div>
+    <div id="dtab-ekspo" style="display:none"></div>
+    <div id="dtab-szkolenie" style="display:none"></div>
+    <div id="dtab-architekt" style="display:none"></div>
     <div id="dtab-tasks" style="display:none"></div>
   </div>
 </div>
@@ -833,7 +1418,8 @@ let state={
   dealers:[{"id": 1, "name": "Multi Design Poznań", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "active", "rev": 232.9, "styczen": 121.3, "suma": 354.3, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.40681, "lng": 16.93663, "rks": "Polus", "cs": "Kasia"}, {"id": 2, "name": "DekoStudio", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "active", "rev": 125.9, "styczen": 58.8, "suma": 184.8, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.38752, "lng": 16.93176, "rks": "Polus", "cs": "Kasia"}, {"id": 3, "name": "Multi Design Poznań Detal", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "active", "rev": 74.9, "styczen": 3.3, "suma": 78.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.41514, "lng": 16.93289, "rks": "Polus", "cs": "Kasia"}, {"id": 4, "name": "Fenetro", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "active", "rev": 60.0, "styczen": 0.0, "suma": 60.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.92466, "lng": 15.48108, "rks": "Polus", "cs": "Kasia"}, {"id": 5, "name": "Multi Design Bielsko-Biała", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "active", "rev": 48.3, "styczen": 28.9, "suma": 77.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.83432, "lng": 19.02436, "rks": "Polus", "cs": "Kasia"}, {"id": 6, "name": "Interno", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "active", "rev": 31.1, "styczen": 35.1, "suma": 66.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.22589, "lng": 21.02002, "rks": "Żywicki", "cs": "Lila"}, {"id": 7, "name": "Nova BP", "contact": "", "phone": "", "email": "", "city": "Legionwo", "woj": "mazowieckie", "handler": "h2", "status": "active", "rev": 29.9, "styczen": 21.6, "suma": 51.5, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.39195, "lng": 20.93389, "rks": "Żywicki", "cs": "Lila"}, {"id": 8, "name": "Damont", "contact": "", "phone": "", "email": "", "city": "Radomyśl n.Sanem", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 26.5, "styczen": 6.7, "suma": 33.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.21617, "lng": 22.30058, "rks": "Żywicki", "cs": "Lila"}, {"id": 9, "name": "Fabryka Podłóg i Drzwi", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 26.4, "styczen": 0.0, "suma": 26.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.82762, "lng": 19.06897, "rks": "Polus", "cs": "Kasia"}, {"id": 10, "name": "Demo Projekt Warszawa Przekorna", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 26.1, "styczen": 5.4, "suma": 31.5, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24209, "lng": 21.01804, "rks": "Żywicki", "cs": "Lila"}, {"id": 11, "name": "Panas Schody", "contact": "", "phone": "", "email": "", "city": "Marcinowice", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 25.9, "styczen": 6.0, "suma": 32.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.75113, "lng": 16.83963, "rks": "Polus", "cs": "Kasia"}, {"id": 12, "name": "Domo-Strefa", "contact": "", "phone": "", "email": "", "city": "Babice Nowe", "woj": "mazowieckie", "handler": "h2", "status": "active", "rev": 23.7, "styczen": 51.1, "suma": 74.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.16375, "lng": 20.81166, "rks": "Żywicki", "cs": "Lila"}, {"id": 13, "name": "Insolut Białystok", "contact": "", "phone": "", "email": "", "city": "Białystok", "woj": "podlaskie", "handler": "h2", "status": "warning", "rev": 23.5, "styczen": 20.1, "suma": 43.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.11574, "lng": 23.15553, "rks": "Żywicki", "cs": "Lila"}, {"id": 14, "name": "Multi Design Tychy", "contact": "", "phone": "", "email": "", "city": "Tychy", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 21.9, "styczen": 18.5, "suma": 40.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.138, "lng": 18.95679, "rks": "Polus", "cs": "Kasia"}, {"id": 15, "name": "Demo Projekt Warszawa Bartycka", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 21.3, "styczen": 0.0, "suma": 21.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24368, "lng": 21.04128, "rks": "Żywicki", "cs": "Lila"}, {"id": 16, "name": "Białystok Expert", "contact": "", "phone": "", "email": "", "city": "Białystok", "woj": "podlaskie", "handler": "h2", "status": "warning", "rev": 18.1, "styczen": 11.7, "suma": 29.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.12321, "lng": 23.14079, "rks": "Żywicki", "cs": "Lila"}, {"id": 17, "name": "Dekorian ( MAM) Częstochowa", "contact": "", "phone": "", "email": "", "city": "Częstochowa", "woj": "śląskie", "handler": "h2", "status": "warning", "rev": 17.1, "styczen": 0.0, "suma": 17.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.83015, "lng": 19.11362, "rks": "Żywicki", "cs": "Lila"}, {"id": 18, "name": "Prestige Decor Gdynia", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 16.9, "styczen": 0.0, "suma": 16.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.5107, "lng": 18.51634, "rks": "Żywicki", "cs": "Lila"}, {"id": 19, "name": "Podłogi z Klasa", "contact": "", "phone": "", "email": "", "city": "Kielce", "woj": "świętokrzyskie", "handler": "h2", "status": "warning", "rev": 15.1, "styczen": 0.0, "suma": 15.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.87846, "lng": 20.64826, "rks": "Żywicki", "cs": "Lila"}, {"id": 20, "name": "Domsystem", "contact": "", "phone": "", "email": "", "city": "Stalowa Wola", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 15.0, "styczen": 0.0, "suma": 15.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.58149, "lng": 22.03787, "rks": "Żywicki", "cs": "Lila"}, {"id": 21, "name": "Demo Projekt Warszawa Targówek", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 12.9, "styczen": 0.0, "suma": 12.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24763, "lng": 21.02178, "rks": "Żywicki", "cs": "Lila"}, {"id": 22, "name": "Ebro", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "małopolskie", "handler": "h2", "status": "warning", "rev": 12.8, "styczen": 6.4, "suma": 19.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.04613, "lng": 19.92537, "rks": "Żywicki", "cs": "Lila"}, {"id": 23, "name": "Multi Form Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 12.6, "styczen": 3.9, "suma": 16.5, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.27071, "lng": 18.99444, "rks": "Polus", "cs": "Kasia"}, {"id": 24, "name": "Centrum Podłóg i Drzwi Prestige", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 12.3, "styczen": 0.0, "suma": 12.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.23769, "lng": 22.57826, "rks": "Żywicki", "cs": "Lila"}, {"id": 25, "name": "Quercus Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 11.5, "styczen": 0.0, "suma": 11.5, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.28196, "lng": 19.04076, "rks": "Polus", "cs": "Kasia"}, {"id": 26, "name": "Studio Rewers ( POL-ARM)", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 10.9, "styczen": 28.0, "suma": 38.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.02394, "lng": 21.97223, "rks": "Żywicki", "cs": "Lila"}, {"id": 27, "name": "Forma Floors", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 10.2, "styczen": 3.9, "suma": 14.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09613, "lng": 17.04296, "rks": "Polus", "cs": "Kasia"}, {"id": 28, "name": "Unilutron", "contact": "", "phone": "", "email": "", "city": "Bydgoszcz", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "warning", "rev": 10.2, "styczen": 0.0, "suma": 10.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.11887, "lng": 17.99837, "rks": "Polus", "cs": "Kasia"}, {"id": 29, "name": "Astfloor Opole", "contact": "", "phone": "", "email": "", "city": "Opole", "woj": "opolskie", "handler": "h1", "status": "warning", "rev": 9.9, "styczen": 0.0, "suma": 9.9, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.66544, "lng": 17.95323, "rks": "Polus", "cs": "Kasia"}, {"id": 30, "name": "PPHU Witbud", "contact": "", "phone": "", "email": "", "city": "Witkowo", "woj": "wielkopolskie", "handler": "h1", "status": "warning", "rev": 9.6, "styczen": 0.0, "suma": 9.6, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.41419, "lng": 17.80886, "rks": "Polus", "cs": "Kasia"}, {"id": 31, "name": "Deska Design Gdynia", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 9.6, "styczen": 3.3, "suma": 12.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.49692, "lng": 18.5458, "rks": "Żywicki", "cs": "Lila"}, {"id": 32, "name": "Venire Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "warning", "rev": 9.5, "styczen": 15.9, "suma": 25.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.75834, "lng": 19.4486, "rks": "Polus", "cs": "Kasia"}, {"id": 33, "name": "Studio Podłóg Z53", "contact": "", "phone": "", "email": "", "city": "Zamość", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 9.4, "styczen": 0.0, "suma": 9.4, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.72508, "lng": 23.23508, "rks": "Żywicki", "cs": "Lila"}, {"id": 34, "name": "Studio Domi Iława", "contact": "", "phone": "", "email": "", "city": "Iława", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "warning", "rev": 9.2, "styczen": 4.4, "suma": 13.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.56626, "lng": 19.55287, "rks": "Żywicki", "cs": "Lila"}, {"id": 35, "name": "Interior Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 9.1, "styczen": 3.8, "suma": 12.9, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.25585, "lng": 19.03813, "rks": "Polus", "cs": "Kasia"}, {"id": 36, "name": "Meritum", "contact": "", "phone": "", "email": "", "city": "Janki", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 8.4, "styczen": 0.0, "suma": 8.4, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.12881, "lng": 20.87774, "rks": "Żywicki", "cs": "Lila"}, {"id": 37, "name": "Projekt Home Rzeszów", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 8.3, "styczen": 0.0, "suma": 8.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.055, "lng": 22.01071, "rks": "Żywicki", "cs": "Lila"}, {"id": 38, "name": "Tomstyl", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 8.2, "styczen": 13.2, "suma": 21.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.82063, "lng": 19.05805, "rks": "Polus", "cs": "Kasia"}, {"id": 39, "name": "Studio Okien Gizycko", "contact": "", "phone": "", "email": "", "city": "Giżycko", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "warning", "rev": 7.9, "styczen": 0.0, "suma": 7.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.02665, "lng": 21.74836, "rks": "Żywicki", "cs": "Lila"}, {"id": 40, "name": "Max Fliz Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 7.7, "styczen": 0.0, "suma": 7.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.26177, "lng": 19.02531, "rks": "Polus", "cs": "Kasia"}, {"id": 41, "name": "Wzorcownia", "contact": "", "phone": "", "email": "", "city": "Jelenia Góra", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 7.4, "styczen": 0.0, "suma": 7.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.88006, "lng": 15.69787, "rks": "Polus", "cs": "Kasia"}, {"id": 42, "name": "Dekorian ( MAM) Kraków", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "świętokrzyskie", "handler": "h2", "status": "warning", "rev": 7.3, "styczen": 0.0, "suma": 7.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.07176, "lng": 19.92437, "rks": "Żywicki", "cs": "Lila"}, {"id": 43, "name": "Dekorian ( MAM) Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h2", "status": "warning", "rev": 7.0, "styczen": 0.0, "suma": 7.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.0924, "lng": 17.04078, "rks": "Żywicki", "cs": "Lila"}, {"id": 44, "name": "Archem", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 6.7, "styczen": 0.0, "suma": 6.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.34811, "lng": 18.67041, "rks": "Żywicki", "cs": "Lila"}, {"id": 45, "name": "Romax Wolska", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 6.6, "styczen": 0.0, "suma": 6.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23847, "lng": 21.02001, "rks": "Żywicki", "cs": "Lila"}, {"id": 46, "name": "Sąsiedzi Home By Maxfliz", "contact": "", "phone": "", "email": "", "city": "Tarnów", "woj": "małopolskie", "handler": "h2", "status": "warning", "rev": 6.6, "styczen": 0.0, "suma": 6.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.01562, "lng": 20.95586, "rks": "Żywicki", "cs": "Lila"}, {"id": 47, "name": "Demo Projekt Radom", "contact": "", "phone": "", "email": "", "city": "Radom", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 6.4, "styczen": 0.0, "suma": 6.4, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.38705, "lng": 21.14328, "rks": "Żywicki", "cs": "Lila"}, {"id": 48, "name": "Lamcoo", "contact": "", "phone": "", "email": "", "city": "Szczecin", "woj": "zachodniopomorskie", "handler": "h1", "status": "warning", "rev": 6.3, "styczen": 3.5, "suma": 9.8, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.42766, "lng": 14.52374, "rks": "Polus", "cs": "Kasia"}, {"id": 49, "name": "Przedsiębiorstwo Handlowo Usługowe Bartek", "contact": "", "phone": "", "email": "", "city": "Wysokie Mazowieckie", "woj": "podlaskie", "handler": "h2", "status": "warning", "rev": 6.3, "styczen": 0.0, "suma": 6.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.92085, "lng": 22.51826, "rks": "Żywicki", "cs": "Lila"}, {"id": 50, "name": "Doorplast", "contact": "", "phone": "", "email": "", "city": "Kobylnica k/Słupska", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 5.9, "styczen": 0.0, "suma": 5.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.41892, "lng": 17.10721, "rks": "Żywicki", "cs": "Lila"}, {"id": 51, "name": "Profi Parkiet Gdynia", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 5.6, "styczen": 0.0, "suma": 5.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.53158, "lng": 18.52772, "rks": "Żywicki", "cs": "Lila"}, {"id": 52, "name": "Superparkiet", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 5.6, "styczen": 10.7, "suma": 16.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.21829, "lng": 21.03255, "rks": "Żywicki", "cs": "Lila"}, {"id": 53, "name": "Belwedo", "contact": "", "phone": "", "email": "", "city": "Racibórz", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 5.5, "styczen": 7.5, "suma": 13.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.09789, "lng": 18.24562, "rks": "Polus", "cs": "Kasia"}, {"id": 54, "name": "Max Fliz Kraków", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "małopolskie", "handler": "h2", "status": "warning", "rev": 5.2, "styczen": 31.0, "suma": 36.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.08395, "lng": 19.91703, "rks": "Żywicki", "cs": "Lila"}, {"id": 55, "name": "Quercus Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "warning", "rev": 5.2, "styczen": 0.0, "suma": 5.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.75781, "lng": 19.45073, "rks": "Polus", "cs": "Kasia"}, {"id": 56, "name": "DGD Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 5.1, "styczen": 0.0, "suma": 5.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.10143, "lng": 17.05133, "rks": "Polus", "cs": "Kasia"}, {"id": 57, "name": "Interior Bielsko-Biała", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 5.1, "styczen": 0.0, "suma": 5.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.81801, "lng": 19.03068, "rks": "Polus", "cs": "Kasia"}, {"id": 58, "name": "Deska Design Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 4.9, "styczen": 11.0, "suma": 15.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.33474, "lng": 18.66377, "rks": "Żywicki", "cs": "Lila"}, {"id": 59, "name": "Dekorian ( MAM) Katowcie", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h2", "status": "inactive", "rev": 4.8, "styczen": 0.0, "suma": 4.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.24961, "lng": 18.98779, "rks": "Żywicki", "cs": "Lila"}, {"id": 60, "name": "Budus Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 4.6, "styczen": 14.3, "suma": 18.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.33876, "lng": 18.65066, "rks": "Żywicki", "cs": "Lila"}, {"id": 61, "name": "Multi Form Lubliniec", "contact": "", "phone": "", "email": "", "city": "Lubliniec", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 4.6, "styczen": 3.0, "suma": 7.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.66599, "lng": 18.66772, "rks": "Polus", "cs": "Kasia"}, {"id": 62, "name": "Belle Decor", "contact": "", "phone": "", "email": "", "city": "Biała Podlaska", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 4.5, "styczen": 0.0, "suma": 4.5, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.0282, "lng": 23.12501, "rks": "Żywicki", "cs": "Lila"}, {"id": 63, "name": "Max Fliz Warszawa", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 4.2, "styczen": 9.5, "suma": 13.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.21031, "lng": 20.99126, "rks": "Żywicki", "cs": "Lila"}, {"id": 64, "name": "Art-Mar Lublin", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 4.0, "styczen": 22.2, "suma": 26.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.24099, "lng": 22.58961, "rks": "Żywicki", "cs": "Lila"}, {"id": 65, "name": "Tophome", "contact": "", "phone": "", "email": "", "city": "Kołobrzeg", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 3.7, "styczen": 0.0, "suma": 3.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.18172, "lng": 15.58316, "rks": "Polus", "cs": "Kasia"}, {"id": 66, "name": "Żądlak", "contact": "", "phone": "", "email": "", "city": "Nowy Sącz", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 3.6, "styczen": 0.0, "suma": 3.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 49.60279, "lng": 20.72027, "rks": "Żywicki", "cs": "Lila"}, {"id": 67, "name": "Mariscal Salon Podłóg i Drzwi", "contact": "", "phone": "", "email": "", "city": "Radom", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 3.6, "styczen": 0.0, "suma": 3.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.39848, "lng": 21.14684, "rks": "Żywicki", "cs": "Lila"}, {"id": 68, "name": "Drzwi Marzeń", "contact": "", "phone": "", "email": "", "city": "Jabłonna k/Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 3.6, "styczen": 0.0, "suma": 3.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.37637, "lng": 20.96271, "rks": "Żywicki", "cs": "Lila"}, {"id": 69, "name": "Amada Bolesławiec", "contact": "", "phone": "", "email": "", "city": "Bolesławiec", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 3.5, "styczen": 0.0, "suma": 3.5, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.28662, "lng": 15.57656, "rks": "Polus", "cs": "Kasia"}, {"id": 70, "name": "Multi Form Przemyśl", "contact": "", "phone": "", "email": "", "city": "Przemyśl", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 3.5, "styczen": 0.0, "suma": 3.5, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 49.78708, "lng": 22.74819, "rks": "Żywicki", "cs": "Lila"}, {"id": 71, "name": "Dom-Styl Koszalin", "contact": "", "phone": "", "email": "", "city": "Koszalin", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 3.4, "styczen": 0.0, "suma": 3.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.19352, "lng": 16.15516, "rks": "Polus", "cs": "Kasia"}, {"id": 72, "name": "Wik Cieszyn", "contact": "", "phone": "", "email": "", "city": "Cieszyn", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 3.3, "styczen": 10.4, "suma": 13.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.75326, "lng": 18.64003, "rks": "Polus", "cs": "Kasia"}, {"id": 73, "name": "Ardago", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 3.2, "styczen": 12.7, "suma": 16.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.80365, "lng": 19.06802, "rks": "Polus", "cs": "Kasia"}, {"id": 74, "name": "Dekorian ( MAM) Poznań", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h2", "status": "inactive", "rev": 3.1, "styczen": 0.0, "suma": 3.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.3898, "lng": 16.92451, "rks": "Żywicki", "cs": "Lila"}, {"id": 75, "name": "Inter Gorzów Wlkp", "contact": "", "phone": "", "email": "", "city": "Gorzów Wlkp", "woj": "lubuskie", "handler": "h1", "status": "warning", "rev": 3.1, "styczen": 3.4, "suma": 6.5, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.72705, "lng": 15.23567, "rks": "Polus", "cs": "Kasia"}, {"id": 76, "name": "Venire Warszawa", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 3.1, "styczen": 16.2, "suma": 19.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23182, "lng": 21.00538, "rks": "Żywicki", "cs": "Lila"}, {"id": 77, "name": "Okno -Rest Rzeszów", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 3.0, "styczen": 6.1, "suma": 9.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.03376, "lng": 21.97516, "rks": "Żywicki", "cs": "Lila"}, {"id": 78, "name": "Montażownia", "contact": "", "phone": "", "email": "", "city": "Porosiuki", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 3.0, "styczen": 0.0, "suma": 3.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.16424, "lng": 23.34044, "rks": "Żywicki", "cs": "Lila"}, {"id": 79, "name": "Heldor", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 3.0, "styczen": 27.2, "suma": 30.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.83255, "lng": 19.04492, "rks": "Polus", "cs": "Kasia"}, {"id": 80, "name": "Stomi-Bud Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "warning", "rev": 2.8, "styczen": 2.2, "suma": 5.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.75461, "lng": 19.42137, "rks": "Polus", "cs": "Kasia"}, {"id": 81, "name": "Ad-Bud", "contact": "", "phone": "", "email": "", "city": "", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 2.8, "styczen": 7.3, "suma": 10.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.00326, "lng": 18.99294, "rks": "Żywicki", "cs": "Lila"}, {"id": 82, "name": "Studio AW Rzeszów", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 2.8, "styczen": 0.0, "suma": 2.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.05462, "lng": 21.97502, "rks": "Żywicki", "cs": "Lila"}, {"id": 83, "name": "Fimal Słupsk", "contact": "", "phone": "", "email": "", "city": "Słupsk", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 2.8, "styczen": 0.0, "suma": 2.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.48395, "lng": 17.0569, "rks": "Żywicki", "cs": "Lila"}, {"id": 84, "name": "Stolmat Częstochowa", "contact": "", "phone": "", "email": "", "city": "Częstochowa", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 2.8, "styczen": 0.0, "suma": 2.8, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.81705, "lng": 19.12, "rks": "Polus", "cs": "Kasia"}, {"id": 85, "name": "Euro Windows", "contact": "", "phone": "", "email": "", "city": "Suwałki", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 2.7, "styczen": 0.0, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.08898, "lng": 22.93025, "rks": "Żywicki", "cs": "Lila"}, {"id": 86, "name": "Wiking", "contact": "", "phone": "", "email": "", "city": "", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 2.7, "styczen": 0.0, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.00546, "lng": 19.01401, "rks": "Żywicki", "cs": "Lila"}, {"id": 87, "name": "Kenbud", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 2.6, "styczen": 0.0, "suma": 2.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.04605, "lng": 19.96814, "rks": "Żywicki", "cs": "Lila"}, {"id": 88, "name": "Studio Domi Nowe Miasto Lubawskie", "contact": "", "phone": "", "email": "", "city": "Nowe Miasto Lubawskie", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 2.6, "styczen": 0.0, "suma": 2.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.43391, "lng": 19.50443, "rks": "Żywicki", "cs": "Lila"}, {"id": 89, "name": "Wood Fashion", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 2.4, "styczen": 3.4, "suma": 5.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.2164, "lng": 21.00484, "rks": "Żywicki", "cs": "Lila"}, {"id": 90, "name": "Dkforma", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 2.0, "styczen": 0.0, "suma": 2.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.95033, "lng": 15.50526, "rks": "Polus", "cs": "Kasia"}, {"id": 91, "name": "Akan", "contact": "", "phone": "", "email": "", "city": "Gniezno", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.54542, "lng": 17.62821, "rks": "Polus", "cs": "Kasia"}, {"id": 92, "name": "Bemares ( Windoormatic)", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.03077, "lng": 21.98228, "rks": "Żywicki", "cs": "Lila"}, {"id": 93, "name": "Boba Elbląg", "contact": "", "phone": "", "email": "", "city": "Elbląg", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 9.1, "suma": 9.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.16024, "lng": 19.41658, "rks": "Żywicki", "cs": "Lila"}, {"id": 94, "name": "Budus Lubin", "contact": "", "phone": "", "email": "", "city": "Lubin", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.39474, "lng": 16.22003, "rks": "Polus", "cs": "Kasia"}, {"id": 95, "name": "Budus Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09415, "lng": 17.06206, "rks": "Polus", "cs": "Kasia"}, {"id": 96, "name": "Czesław Wróbel ( Dewro)", "contact": "", "phone": "", "email": "", "city": "Bestwinka", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.92962, "lng": 18.9493, "rks": "Polus", "cs": "Kasia"}, {"id": 97, "name": "DBN Koszalin", "contact": "", "phone": "", "email": "", "city": "Koszalin", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.16714, "lng": 16.17119, "rks": "Polus", "cs": "Kasia"}, {"id": 98, "name": "Dekorian ( MAM) Kielce", "contact": "", "phone": "", "email": "", "city": "Kielce", "woj": "świętokrzyskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 3.2, "suma": 3.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.86875, "lng": 20.65616, "rks": "Żywicki", "cs": "Lila"}, {"id": 99, "name": "Dekorian ( MAM) Opole", "contact": "", "phone": "", "email": "", "city": "Opole", "woj": "opolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.67528, "lng": 17.94374, "rks": "Żywicki", "cs": "Lila"}, {"id": 100, "name": "Dekorian ( MAM) Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.34946, "lng": 18.66929, "rks": "Żywicki", "cs": "Lila"}, {"id": 101, "name": "Dekorian ( MAM) Warszawa", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.22349, "lng": 21.00166, "rks": "Żywicki", "cs": "Lila"}, {"id": 102, "name": "Domwill", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.23915, "lng": 22.54896, "rks": "Żywicki", "cs": "Lila"}, {"id": 103, "name": "Ekspol Grudziądz", "contact": "", "phone": "", "email": "", "city": "Grudziądz", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.48197, "lng": 18.7261, "rks": "Polus", "cs": "Kasia"}, {"id": 104, "name": "Eliza Wolska", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.4236, "lng": 16.91454, "rks": "Polus", "cs": "Kasia"}, {"id": 105, "name": "FloorDoor", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.95133, "lng": 15.49707, "rks": "Polus", "cs": "Kasia"}, {"id": 106, "name": "Galeria Drzwi Prestige", "contact": "", "phone": "", "email": "", "city": "Sopot", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 4.0, "suma": 4.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.45103, "lng": 18.52693, "rks": "Żywicki", "cs": "Lila"}, {"id": 107, "name": "Herplast Słowacja", "contact": "", "phone": "", "email": "", "city": "Słowacja", "woj": "słowacja", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 48.66419, "lng": 19.68008, "rks": "Żywicki", "cs": "Lila"}, {"id": 108, "name": "Holz Master ( Status Drzwi)", "contact": "", "phone": "", "email": "", "city": "Pruszków", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 11.4, "suma": 11.4, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.17409, "lng": 20.77522, "rks": "Żywicki", "cs": "Lila"}, {"id": 109, "name": "Interhome", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.21575, "lng": 21.02521, "rks": "Żywicki", "cs": "Lila"}, {"id": 110, "name": "Intiri", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 3.3, "suma": 3.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.22038, "lng": 21.00167, "rks": "Żywicki", "cs": "Lila"}, {"id": 111, "name": "Luka", "contact": "", "phone": "", "email": "", "city": "Chwalęcice", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.6178, "lng": 15.69444, "rks": "Polus", "cs": "Kasia"}, {"id": 112, "name": "Magia Parkietu", "contact": "", "phone": "", "email": "", "city": "Częstochowa", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.82793, "lng": 19.1021, "rks": "Polus", "cs": "Kasia"}, {"id": 113, "name": "Majsterek", "contact": "", "phone": "", "email": "", "city": "Żywiec", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.67317, "lng": 19.174, "rks": "Polus", "cs": "Kasia"}, {"id": 114, "name": "Matex", "contact": "", "phone": "", "email": "", "city": "Nowa Sól", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.80742, "lng": 15.73036, "rks": "Polus", "cs": "Kasia"}, {"id": 115, "name": "Max Fliz Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.08343, "lng": 17.01667, "rks": "Polus", "cs": "Kasia"}, {"id": 116, "name": "Moderna Studio", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.28438, "lng": 19.02256, "rks": "Polus", "cs": "Kasia"}, {"id": 117, "name": "Monteria Siedlce", "contact": "", "phone": "", "email": "", "city": "Siedlce", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.17906, "lng": 22.30742, "rks": "Żywicki", "cs": "Lila"}, {"id": 118, "name": "MP Studio Pisz", "contact": "", "phone": "", "email": "", "city": "Pisz", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.64799, "lng": 21.83977, "rks": "Żywicki", "cs": "Lila"}, {"id": 119, "name": "Mstudio Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.77947, "lng": 19.44486, "rks": "Polus", "cs": "Kasia"}, {"id": 120, "name": "Multi Form Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 7.2, "suma": 7.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.34189, "lng": 18.64744, "rks": "Żywicki", "cs": "Lila"}, {"id": 121, "name": "Multi Form Pszczyna", "contact": "", "phone": "", "email": "", "city": "Pszczyna", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.99873, "lng": 18.96265, "rks": "Polus", "cs": "Kasia"}, {"id": 122, "name": "Olimar", "contact": "", "phone": "", "email": "", "city": "Mińsk Mazowiecki", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 17.7, "suma": 17.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.16642, "lng": 21.58229, "rks": "Żywicki", "cs": "Lila"}, {"id": 123, "name": "Omega Bydgoszcz", "contact": "", "phone": "", "email": "", "city": "Bydgoszcz", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 11.0, "suma": 11.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.12857, "lng": 18.00501, "rks": "Polus", "cs": "Kasia"}, {"id": 124, "name": "Open and Close", "contact": "", "phone": "", "email": "", "city": "", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.98915, "lng": 19.02808, "rks": "Żywicki", "cs": "Lila"}, {"id": 125, "name": "PHU Prestige Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.28373, "lng": 19.04195, "rks": "Polus", "cs": "Kasia"}, {"id": 126, "name": "PHU Profit Grudziądz", "contact": "", "phone": "", "email": "", "city": "Grudziądz", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.49384, "lng": 18.73192, "rks": "Polus", "cs": "Kasia"}, {"id": 127, "name": "Quercus Babice", "contact": "", "phone": "", "email": "", "city": "Babice", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.07181, "lng": 19.2962, "rks": "Żywicki", "cs": "Lila"}, {"id": 128, "name": "Quercus Kraków", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.05207, "lng": 19.92511, "rks": "Żywicki", "cs": "Lila"}, {"id": 129, "name": "Quercus Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 40.0, "suma": 40.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.08762, "lng": 17.05958, "rks": "Polus", "cs": "Kasia"}, {"id": 130, "name": "Remos", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 4.0, "suma": 4.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.10891, "lng": 17.0289, "rks": "Polus", "cs": "Kasia"}, {"id": 131, "name": "Roko", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.26155, "lng": 22.57084, "rks": "Żywicki", "cs": "Lila"}, {"id": 132, "name": "Romax Marywilska", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.22833, "lng": 20.98951, "rks": "Żywicki", "cs": "Lila"}, {"id": 133, "name": "Romax Al. Jerozolimskie", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23679, "lng": 21.00126, "rks": "Żywicki", "cs": "Lila"}, {"id": 134, "name": "Romax Domaniewska", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24302, "lng": 21.01126, "rks": "Żywicki", "cs": "Lila"}, {"id": 135, "name": "Sokółka Gdynia", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.52983, "lng": 18.53514, "rks": "Żywicki", "cs": "Lila"}, {"id": 136, "name": "Sokółka Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 2.7, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.77296, "lng": 19.46746, "rks": "Polus", "cs": "Kasia"}, {"id": 137, "name": "Sokółka Olsztyn", "contact": "", "phone": "", "email": "", "city": "Olsztyn", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.77309, "lng": 20.50796, "rks": "Żywicki", "cs": "Lila"}, {"id": 138, "name": "Sokółka Szczecin", "contact": "", "phone": "", "email": "", "city": "Szczecin", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.44785, "lng": 14.56218, "rks": "Polus", "cs": "Kasia"}, {"id": 139, "name": "Spectrem", "contact": "", "phone": "", "email": "", "city": "", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.99183, "lng": 19.01337, "rks": "Polus", "cs": "Kasia"}, {"id": 140, "name": "Sportex", "contact": "", "phone": "", "email": "", "city": "Kielce", "woj": "świętokrzyskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.88368, "lng": 20.63541, "rks": "Żywicki", "cs": "Lila"}, {"id": 141, "name": "Stoberg", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 5.9, "suma": 5.9, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.93211, "lng": 15.5138, "rks": "Polus", "cs": "Kasia"}, {"id": 142, "name": "Stolarka Premium (Klucz Serwis)", "contact": "", "phone": "", "email": "", "city": "Grójec", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.86406, "lng": 20.88687, "rks": "Żywicki", "cs": "Lila"}, {"id": 143, "name": "Studio Flooresy", "contact": "", "phone": "", "email": "", "city": "Sztum", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.93151, "lng": 19.00355, "rks": "Żywicki", "cs": "Lila"}, {"id": 144, "name": "Unico Wnętrze", "contact": "", "phone": "", "email": "", "city": "Zamość", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 13.3, "suma": 13.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.71965, "lng": 23.24143, "rks": "Żywicki", "cs": "Lila"}, {"id": 145, "name": "Veldom", "contact": "", "phone": "", "email": "", "city": "Sokółka", "woj": "podlaskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 3.0, "suma": 3.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.41299, "lng": 23.47412, "rks": "Żywicki", "cs": "Lila"}, {"id": 146, "name": "Studio Wnętrz Ostrołęka", "contact": "", "phone": "", "email": "", "city": "Ostrołęka", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.08235, "lng": 21.54327, "rks": "Żywicki", "cs": "Lila"}, {"id": 147, "name": "VOX Bielsko-Biała", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 6.1, "suma": 6.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.81455, "lng": 19.03583, "rks": "Polus", "cs": "Kasia"}, {"id": 148, "name": "Zaffiro ( Aura Wnętrz)", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.25172, "lng": 19.02999, "rks": "Polus", "cs": "Kasia"}, {"id": 149, "name": "Ordis", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.25858, "lng": 22.57117, "rks": "Żywicki", "cs": "Lila"}, {"id": 150, "name": "Glass onion", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.50649, "lng": 18.54535, "rks": "Żywicki", "cs": "Lila"}, {"id": 151, "name": "F.P.H 2M", "contact": "", "phone": "", "email": "", "city": "Toruń", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.02348, "lng": 18.61728, "rks": "Polus", "cs": "Kasia"}, {"id": 152, "name": "Otif Profil", "contact": "", "phone": "", "email": "", "city": "Witkowo", "woj": "wielkopolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.43874, "lng": 17.82407, "rks": "Żywicki", "cs": "Lila"}, {"id": 153, "name": "Artel Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09864, "lng": 17.04895, "rks": "Polus", "cs": "Kasia"}, {"id": 154, "name": "Encanto", "contact": "", "phone": "", "email": "", "city": "Toruń", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.00518, "lng": 18.60213, "rks": "Polus", "cs": "Kasia"}, {"id": 155, "name": "Greston", "contact": "", "phone": "", "email": "", "city": "Sękocin Nowy", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.07623, "lng": 20.8928, "rks": "Żywicki", "cs": "Lila"}, {"id": 156, "name": "Wik2 Cieszyn", "contact": "", "phone": "", "email": "", "city": "Cieszyn", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.73806, "lng": 18.66291, "rks": "Polus", "cs": "Kasia"}, {"id": 157, "name": "Perfekt Dom Siedlce", "contact": "", "phone": "", "email": "", "city": "Siedlce", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.1702, "lng": 22.26912, "rks": "Żywicki", "cs": "Lila"}, {"id": 158, "name": "Nowy Salon Drzwi i Podłóg", "contact": "", "phone": "", "email": "", "city": "Koszalin", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.17862, "lng": 16.14392, "rks": "Polus", "cs": "Kasia"}, {"id": 159, "name": "Składy VOX Poznań", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 2.7, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.40213, "lng": 16.91821, "rks": "Polus", "cs": "Kasia"}, {"id": 160, "name": "FHU Jawil Ostrołęka", "contact": "", "phone": "", "email": "", "city": "Ostrołęka", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 6.0, "suma": 6.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.06335, "lng": 21.55205, "rks": "Żywicki", "cs": "Lila"}, {"id": 161, "name": "VOX Niepołomice", "contact": "", "phone": "", "email": "", "city": "Niepołomice", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.01895, "lng": 20.22091, "rks": "Żywicki", "cs": "Lila"}, {"id": 162, "name": "Wrobud II", "contact": "", "phone": "", "email": "", "city": "Łańcut", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 2.8, "suma": 2.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.08343, "lng": 22.22882, "rks": "Żywicki", "cs": "Lila"}, {"id": 163, "name": "Vinylownia", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.10571, "lng": 17.00576, "rks": "Polus", "cs": "Kasia"}, {"id": 164, "name": "Multi Design Bielany Wrocławskie", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 4.0, "suma": 4.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09666, "lng": 17.03089, "rks": "Polus", "cs": "Kasia"}, {"id": 165, "name": "Okno Rest Przeworsk", "contact": "", "phone": "", "email": "", "city": "Przeworsk", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.06624, "lng": 22.51906, "rks": "Żywicki", "cs": "Lila"}, {"id": 166, "name": "Budus Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.25545, "lng": 19.03664, "rks": "Polus", "cs": "Kasia"}, {"id": 167, "name": "Stolarczyk Okna", "contact": "", "phone": "", "email": "", "city": "Dzierżoniów", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 2.9, "suma": 2.9, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.74752, "lng": 16.64568, "rks": "Polus", "cs": "Kasia"}, {"id": 168, "name": "Multi Form Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 7.2, "suma": 7.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.34189, "lng": 18.64744, "rks": "Żywicki", "cs": "Lila"}, {"id": 169, "name": "Evva", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24832, "lng": 20.99115, "rks": "Żywicki", "cs": "Lila"}, {"id": 170, "name": "Ekoparkiet", "contact": "", "phone": "", "email": "", "city": "Tomaszów Mazowiecki", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.53455, "lng": 20.00614, "rks": "Żywicki", "cs": "Lila"}, {"id": 171, "name": "Dom Architekta", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24515, "lng": 21.03823, "rks": "Żywicki", "cs": "Lila"}, {"id": 172, "name": "Decor Drzwi", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.35927, "lng": 18.64384, "rks": "Polus", "cs": "Kasia"}, {"id": 173, "name": "Prokres", "contact": "", "phone": "", "email": "", "city": "Łęka Opatowska", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.52086, "lng": 17.99075, "rks": "Polus", "cs": "Kasia"}, {"id": 174, "name": "Timberline", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23794, "lng": 21.00578, "rks": "Żywicki", "cs": "Lila"}, {"id": 175, "name": "Dobre Drzwi i Okna", "contact": "", "phone": "", "email": "", "city": "", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.99981, "lng": 18.9887, "rks": "Żywicki", "cs": "Lila"}, {"id": 176, "name": "MrMeble Konin", "contact": "", "phone": "", "email": "", "city": "Konin", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.23438, "lng": 18.22951, "rks": "Polus", "cs": "Kasia"}, {"id": 177, "name": "Klimek", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24947, "lng": 20.9823, "rks": "Żywicki", "cs": "Lila"}, {"id": 178, "name": "Draft Poddebice", "contact": "", "phone": "", "email": "", "city": "Poddebice", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.88333, "lng": 18.92817, "rks": "Polus", "cs": "Kasia"}, {"id": 179, "name": "Draft Zduńska Wola", "contact": "", "phone": "", "email": "", "city": "Zduńska Wola", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.60776, "lng": 18.94273, "rks": "Polus", "cs": "Kasia"}, {"id": 180, "name": "Draft Sieradz", "contact": "", "phone": "", "email": "", "city": "Sieradz", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.56739, "lng": 18.7519, "rks": "Polus", "cs": "Kasia"}, {"id": 181, "name": "Wik Kołobrzeg", "contact": "", "phone": "", "email": "", "city": "Kołobrzeg", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.17971, "lng": 15.58649, "rks": "Polus", "cs": "Kasia"}, {"id": 182, "name": "Studio La Casa", "contact": "", "phone": "", "email": "", "city": "Białystok", "woj": "podlaskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.11803, "lng": 23.18027, "rks": "Żywicki", "cs": "Lila"}, {"id": 183, "name": "Artex Białobrzegi", "contact": "", "phone": "", "email": "", "city": "Białobrzegi", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.65211, "lng": 20.94158, "rks": "Żywicki", "cs": "Lila"}, {"id": 184, "name": "Dar Drzwi i Okien", "contact": "", "phone": "", "email": "", "city": "Olsztyn", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.80203, "lng": 20.46484, "rks": "Żywicki", "cs": "Lila"}, {"id": 185, "name": "MD Projekt", "contact": "", "phone": "", "email": "", "city": "Starogard Gdański", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.971, "lng": 18.55478, "rks": "Żywicki", "cs": "Lila"}, {"id": 186, "name": "Okno-Spec", "contact": "", "phone": "", "email": "", "city": "Zamość", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.6973, "lng": 23.27402, "rks": "Żywicki", "cs": "Lila"}, {"id": 187, "name": "Paweł Grążka", "contact": "", "phone": "", "email": "", "city": "Ruchenka", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.80591, "lng": 18.502, "rks": "Żywicki", "cs": "Lila"}, {"id": 188, "name": "Prestige Wood", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 2.9, "suma": 2.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.25104, "lng": 22.57905, "rks": "Żywicki", "cs": "Lila"}, {"id": 189, "name": "Oknozbyt", "contact": "", "phone": "", "email": "", "city": "", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.98191, "lng": 18.98218, "rks": "Polus", "cs": "Kasia"}, {"id": 190, "name": "P&I Adrian Okrutny (Studio Holz)", "contact": "", "phone": "", "email": "", "city": "Radom", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.39871, "lng": 21.14818, "rks": "Żywicki", "cs": "Lila"}, {"id": 191, "name": "Quercus Warszawa", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23466, "lng": 21.01726, "rks": "Żywicki", "cs": "Lila"}, {"id": 192, "name": "Sokółka Poznań", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.41796, "lng": 16.91707, "rks": "Polus", "cs": "Kasia"}, {"id": 193, "name": "Deco House", "contact": "", "phone": "", "email": "", "city": "Bielsk Podlaski", "woj": "podlaskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 4.3, "suma": 4.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.78336, "lng": 23.20658, "rks": "Żywicki", "cs": "Lila"}, {"id": 194, "name": "VOX Zielona Góra", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.95083, "lng": 15.47276, "rks": "Polus", "cs": "Kasia"}, {"id": 195, "name": "Bryldom", "contact": "", "phone": "", "email": "", "city": "Żary", "woj": "lubuskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.6141, "lng": 15.13707, "rks": "Żywicki", "cs": "Lila"}, {"id": 196, "name": "Interdom", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 9.9, "suma": 9.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.24917, "lng": 22.58687, "rks": "Żywicki", "cs": "Lila"}, {"id": 197, "name": "Sebastian Pęcherczyk Astek", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09542, "lng": 17.03911, "rks": "Polus", "cs": "Kasia"}, {"id": 198, "name": "Bosco", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 11.2, "suma": 11.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.25896, "lng": 19.03667, "rks": "Polus", "cs": "Kasia"}, {"id": 199, "name": "P.H.U. Jacek Wielądek", "contact": "", "phone": "", "email": "", "city": "Ełk", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 2.7, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.81626, "lng": 22.39609, "rks": "Żywicki", "cs": "Lila"}, {"id": 200, "name": "Jupiter", "contact": "", "phone": "", "email": "", "city": "Legnica", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.20723, "lng": 16.14281, "rks": "Polus", "cs": "Kasia"}, {"id": 201, "name": "Mobilo", "contact": "", "phone": "", "email": "", "city": "", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.01895, "lng": 19.00283, "rks": "Polus", "cs": "Kasia"}, {"id": 202, "name": "Wistom", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.42104, "lng": 16.94702, "rks": "Polus", "cs": "Kasia"}, {"id": 203, "name": "SUMA WSZYSTKICH SALONÓW", "contact": "", "phone": "", "email": "", "city": "", "woj": "", "handler": "h2", "status": "active", "rev": 2589.5, "styczen": 871.7, "suma": 2166.5, "plan": 0, "note": "Opiekun RKS: —", "lat": 51.99596, "lng": 18.97549, "rks": "Żywicki", "cs": "Lila"}],
   visits:[],
   tasks:[],
-  nextId:{dealer:204,visit:1,task:1}
+  nextId:{dealer:204,visit:1,task:1,ekspo:1,szkolenie:1,architekt:1,koszt:1},
+  ekspozycje:[],szkolenia:[],architekci:[],koszty:[]
 };
 
 document.addEventListener('DOMContentLoaded',()=>{
@@ -846,7 +1432,14 @@ function populateWojSelect(){
   document.getElementById('f-woj').innerHTML=WOJS.map(w=>`<option value="${w}">${w}</option>`).join('');
 }
 
-function renderAll(){renderDealers();renderVisitsPage();renderTasksGlobal();renderStats();}
+function renderAll(){renderDealers();renderVisitsPage();renderTasksGlobal();renderStats();
+  // Odśwież kalendarz jeśli jest aktywny
+  if(document.getElementById('page-kalendarz').classList.contains('active')) renderCalendar();
+  if(document.getElementById('page-ekspozycja')?.classList.contains('active')) renderEkspozycja();
+  if(document.getElementById('page-szkolenia')?.classList.contains('active')) renderSzkolenia();
+  if(document.getElementById('page-architekci')?.classList.contains('active')) renderArchitekci();
+  if(document.getElementById('page-koszty')?.classList.contains('active')) renderKoszty();
+}
 
 function setView(v){
   state.view=v;
@@ -996,259 +1589,108 @@ function renderTasksGlobal(){
 }
 
 function renderStats(){
-  const now=new Date(),ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const now=new Date();
+  const period = window._statsPeriod || 'month';
+  
+  // Period bounds
+  let dateFrom = '';
+  if(period==='week'){
+    const d=new Date(now); d.setDate(d.getDate()-d.getDay()+1);
+    dateFrom=d.toISOString().slice(0,10);
+  } else if(period==='month'){
+    dateFrom=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  } else if(period==='quarter'){
+    const q=Math.floor(now.getMonth()/3);
+    dateFrom=`${now.getFullYear()}-${String(q*3+1).padStart(2,'0')}-01`;
+  } else if(period==='year'){
+    dateFrom=`${now.getFullYear()}-01-01`;
+  }
+  const dateTo = now.toISOString().slice(0,10);
+  const ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  
+  // Basic counts (still month-based for widget cards)
   document.getElementById('st-visits').textContent=state.visits.filter(v=>v.date.startsWith(ym)).length;
   document.getElementById('st-tasks-open').textContent=state.tasks.filter(t=>!t.done).length;
   document.getElementById('st-tasks-done').textContent=state.tasks.filter(t=>t.done).length;
+  
+  // Per-RKS cards with period revenue
+  const rksCards = document.getElementById('stats-rks-cards');
+  if(rksCards){
+    const periodLabel = {week:'ten tydzień',month:'ten miesiąc',quarter:'ten kwartał',year:'ten rok'}[period];
+    ['h1','h2'].forEach(h=>{
+      const dealers = state.dealers.filter(d=>d.handler===h && d.id!==203);
+      const totalRev = dealers.reduce((s,d)=>s+(d.suma||d.rev||0),0);
+      const totalPlan = dealers.reduce((s,d)=>s+(d.plan||0),0);
+      const visits = state.visits.filter(v=>v.date>=dateFrom&&v.date<=dateTo&&v.handler===h).length;
+      const pct = totalPlan>0?Math.round(totalRev/totalPlan*100):0;
+      const color = h==='h1'?'var(--accent)':'var(--blue)';
+      const name = h==='h1'?'Polus':'Żywicki';
+      const cs = h==='h1'?'Kasia':'Lila';
+      const el = rksCards.children[h==='h1'?0:1];
+      if(el) el.innerHTML = `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
+          <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:12px">${name} <span style="font-weight:400;color:var(--text3)">(CS: ${cs})</span></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+            <div><div style="font-size:11px;color:var(--text2)">YTD obrót</div><div style="font-size:20px;font-weight:700">${(totalRev/1000).toFixed(1)}<span style="font-size:12px;color:var(--text3)"> tys.</span></div></div>
+            <div><div style="font-size:11px;color:var(--text2)">Plan 2026</div><div style="font-size:20px;font-weight:700">${(totalPlan/1000).toFixed(1)}<span style="font-size:12px;color:var(--text3)"> tys.</span></div></div>
+            <div><div style="font-size:11px;color:var(--text2)">Realizacja</div><div style="font-size:20px;font-weight:700;color:${pct>=100?'var(--green)':pct<50?'var(--red)':color}">${pct}%</div></div>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--text2)">Wizyty (${periodLabel}): <b>${visits}</b> · Salonów: <b>${dealers.length}</b></div>
+        </div>`;
+    });
+    // Ensure two children exist
+    while(rksCards.children.length < 2) rksCards.appendChild(document.createElement('div'));
+  }
+
+  // Networks
+  const NETWORKS = [
+    {key:'multi', label:'Multi Design / Multi Form', patterns:['Multi Design','Multi Form']},
+    {key:'maxfliz', label:'Max Fliz', patterns:['Max Fliz']},
+    {key:'dekorian', label:'Dekorian (M&M)', patterns:['Dekorian','MAM']},
+    {key:'quercus', label:'Quercus', patterns:['Quercus']},
+    {key:'budus', label:'Budus', patterns:['Budus']},
+  ];
+  const netEl = document.getElementById('stats-networks');
+  if(netEl){
+    netEl.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
+      <th>Sieć</th><th>Salonów</th><th>YTD obrót</th><th>Plan 2026</th><th>Realizacja</th><th>Salony</th>
+    </tr></thead><tbody>
+    ${NETWORKS.map(net=>{
+      const salons = state.dealers.filter(d=>d.id!==203 && net.patterns.some(p=>d.name.toLowerCase().includes(p.toLowerCase())));
+      const rev = salons.reduce((s,d)=>s+(d.suma||d.rev||0),0);
+      const plan = salons.reduce((s,d)=>s+(d.plan||0),0);
+      const pct = plan>0?Math.round(rev/plan*100):0;
+      const salonLinks = salons.map(d=>`<span style="cursor:pointer;color:var(--accent);font-size:11px" onclick="openDealer(${d.id})">${d.name}</span>`).join(', ');
+      return `<tr>
+        <td style="font-weight:600">${net.label}</td>
+        <td style="text-align:center">${salons.length}</td>
+        <td style="font-weight:600">${(rev/1000).toFixed(1)} tys. PLN</td>
+        <td>${plan>0?(plan/1000).toFixed(1)+' tys. PLN':'—'}</td>
+        <td><span style="color:${pct>=100?'var(--green)':pct<50?'var(--red)':'var(--text)'};font-weight:600">${plan>0?pct+'%':'—'}</span></td>
+        <td style="max-width:280px;font-size:11px">${salonLinks}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+  }
+
+  // Per-dealer tables
   ['h1','h2'].forEach(h=>{
     const tbody=document.getElementById('stats-'+h+'-tbody');
-    const dealers=state.dealers.filter(d=>d.handler===h);
+    const dealers=state.dealers.filter(d=>d.handler===h && d.id!==203);
     tbody.innerHTML=dealers.map(d=>{
-      const vc=state.visits.filter(v=>v.dealerId===d.id).length;
-      const pct=d.plan>0?Math.round(d.rev/d.plan*100):0;
-      return`<tr class="clickable" onclick="openDealer(${d.id})"><td style="font-size:12px">${d.name}</td><td style="font-size:12px">${vc}</td><td style="font-size:12px">${d.rev}k</td><td><span class="badge ${pct>=100?'badge-green':pct>=60?'badge-yellow':'badge-red'}">${pct}%</span></td></tr>`;
-    }).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;font-size:12px">Brak danych</td></tr>`;
+      const vc=state.visits.filter(v=>v.dealerId===d.id&&v.date>=dateFrom&&v.date<=dateTo).length;
+      const rev=d.suma||d.rev||0;
+      const pct=d.plan>0?Math.round(rev/d.plan*100):0;
+      return `<tr><td style="cursor:pointer;color:var(--accent)" onclick="openDealer(${d.id})">${d.name}</td><td>${vc}</td><td>${(rev/1000).toFixed(1)}k</td><td style="color:${pct>=100?'var(--green)':pct<60?'var(--red)':'var(--text)'}">${pct}%</td></tr>`;
+    }).join('');
   });
 }
 
-function openAddDealer(){
-  state.editDealerId=null;
-  document.getElementById('modal-dealer-title').textContent='Dodaj dealera';
-  ['f-name','f-contact','f-phone','f-email','f-city','f-note'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('f-rev').value=0;document.getElementById('f-plan').value=0;
-  document.getElementById('f-status').value='active';document.getElementById('f-handler').value='h1';
-  openModal('modal-dealer');
+function setStatsPeriod(period, btn){
+  window._statsPeriod = period;
+  document.querySelectorAll('#page-stats .btn[id^="period-"]').forEach(b=>b.classList.remove('btn-primary'));
+  btn.classList.add('btn-primary');
+  renderStats();
 }
 
-function editDealer(id){
-  state.editDealerId=id;const d=state.dealers.find(x=>x.id===id);
-  document.getElementById('modal-dealer-title').textContent='Edytuj dealera';
-  document.getElementById('f-name').value=d.name;document.getElementById('f-contact').value=d.contact||'';
-  document.getElementById('f-phone').value=d.phone||'';document.getElementById('f-email').value=d.email||'';
-  document.getElementById('f-city').value=d.city;document.getElementById('f-woj').value=d.woj;
-  document.getElementById('f-handler').value=d.handler;document.getElementById('f-status').value=d.status;
-  document.getElementById('f-rev').value=d.rev;document.getElementById('f-plan').value=d.plan;
-  document.getElementById('f-note').value=d.note||'';
-  openModal('modal-dealer');
-}
 
-function saveDealer(){
-  const name=document.getElementById('f-name').value.trim();
-  if(!name){alert('Podaj nazwę dealera!');return;}
-  const obj={name,contact:document.getElementById('f-contact').value,phone:document.getElementById('f-phone').value,email:document.getElementById('f-email').value,city:document.getElementById('f-city').value,woj:document.getElementById('f-woj').value,handler:document.getElementById('f-handler').value,status:document.getElementById('f-status').value,rev:parseFloat(document.getElementById('f-rev').value)||0,plan:parseFloat(document.getElementById('f-plan').value)||0,note:document.getElementById('f-note').value};
-  if(state.editDealerId){Object.assign(state.dealers.find(d=>d.id===state.editDealerId),obj);}
-  else{obj.id=state.nextId.dealer++;state.dealers.push(obj);}
-  closeModal('modal-dealer');renderAll();
-  if(state.currentDealerId)renderDrawerTab('info');
-  // Sync z serwerem
-  const saved = state.editDealerId ? state.dealers.find(d=>d.id===state.editDealerId) : null;
-  if(saved) updateDealerOnServer(saved);
-}
-
-function deleteDealer(id){if(!confirm('Usunąć tego dealera?'))return;state.dealers=state.dealers.filter(d=>d.id!==id);closeDrawer();renderAll();}
-
-function populateDealerSelect(selId,selected){
-  document.getElementById(selId).innerHTML=state.dealers.map(d=>`<option value="${d.id}"${d.id===selected?' selected':''}>${d.name}</option>`).join('');
-}
-
-function populateTaskDealerSelect(selected){
-  document.getElementById('t-dealer').innerHTML=`<option value="">— brak —</option>`+state.dealers.map(d=>`<option value="${d.id}"${d.id===selected?' selected':''}>${d.name}</option>`).join('');
-}
-
-function openAddVisitGlobal(){populateDealerSelect('v-dealer',null);openModal('modal-visit');}
-function openAddVisitForDealer(id){populateDealerSelect('v-dealer',id);const d=state.dealers.find(x=>x.id===id);if(d)document.getElementById('v-handler').value=d.handler;openModal('modal-visit');}
-
-async function saveVisit(){
-  const note=document.getElementById('v-note').value.trim();
-  if(!note){alert('Dodaj notatkę!');return;}
-  const visit={id:state.nextId.visit++,dealerId:parseInt(document.getElementById('v-dealer').value),handler:document.getElementById('v-handler').value,date:document.getElementById('v-date').value,type:document.getElementById('v-type').value,note,result:document.getElementById('v-result').value};
-  state.visits.push(visit);
-  closeModal('modal-visit');document.getElementById('v-note').value='';renderAll();
-  if(state.currentDealerId)renderDrawerTab('visits');
-  // Zapisz na serwerze w tle
-  saveVisitToServer(visit);
-}
-
-function openAddTaskGlobal(){populateTaskDealerSelect(null);document.getElementById('t-text').value='';document.getElementById('t-deadline').value='';openModal('modal-task');}
-function openAddTaskForDealer(id){populateTaskDealerSelect(id);const d=state.dealers.find(x=>x.id===id);if(d)document.getElementById('t-handler').value=d.handler;document.getElementById('t-text').value='';openModal('modal-task');}
-
-async function saveTask(){
-  const text=document.getElementById('t-text').value.trim();
-  if(!text){alert('Podaj treść zadania!');return;}
-  const task={id:state.nextId.task++,dealerId:parseInt(document.getElementById('t-dealer').value)||null,handler:document.getElementById('t-handler').value,text,deadline:document.getElementById('t-deadline').value,done:false};
-  state.tasks.push(task);
-  closeModal('modal-task');renderAll();
-  if(state.currentDealerId)renderDrawerTab('tasks');
-  saveTaskToServer(task);
-}
-
-let tempWoj=null;
-function openWojModal(){tempWoj={h1:[...state.wojMapping.h1],h2:[...state.wojMapping.h2]};renderWojModal();openModal('modal-woj');}
-function renderWojModal(){
-  document.getElementById('woj-h1-list').innerHTML=tempWoj.h1.map(w=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface2);border-radius:7px;margin-bottom:5px;border:1px solid rgba(212,168,67,.2)"><span style="font-size:12px">${w}</span><button onclick="moveWoj('${w}','h1','h2')" style="background:none;border:none;color:var(--text3);cursor:pointer">→</button></div>`).join('');
-  document.getElementById('woj-h2-list').innerHTML=tempWoj.h2.map(w=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface2);border-radius:7px;margin-bottom:5px;border:1px solid rgba(85,153,232,.2)"><button onclick="moveWoj('${w}','h2','h1')" style="background:none;border:none;color:var(--text3);cursor:pointer">←</button><span style="font-size:12px">${w}</span></div>`).join('');
-}
-function moveWoj(woj,from,to){tempWoj[from]=tempWoj[from].filter(w=>w!==woj);tempWoj[to].push(woj);renderWojModal();}
-function saveWojMapping(){state.wojMapping={h1:[...tempWoj.h1],h2:[...tempWoj.h2]};}
-
-function toggleMobileMenu(){
-  document.getElementById('sidebar').classList.toggle('mobile-open');
-  document.getElementById('sidebar-overlay').classList.toggle('open');
-}
-function closeMobileMenu(){
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebar-overlay').classList.remove('open');
-}
-function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
-
-// ═══════════════════════════════════════
-//  MAPA
-// ═══════════════════════════════════════
-let mapInstance = null;
-let mapMarkers = [];
-
-function initMap() {
-  if (mapInstance) return;
-  mapInstance = L.map('map').setView([52.0, 19.5], 6);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd', maxZoom: 18
-  }).addTo(mapInstance);
-  updateMap();
-}
-
-function getVisitedDealerIds(period) {
-  const now = new Date();
-  const visited = new Set();
-  state.visits.forEach(v => {
-    if (!period || period === 'all') { visited.add(v.dealerId); return; }
-    const vDate = new Date(v.date);
-    if (period === 'ever') { visited.add(v.dealerId); return; }
-    if (period === 'thismonth') {
-      if (vDate.getFullYear() === now.getFullYear() && vDate.getMonth() === now.getMonth())
-        visited.add(v.dealerId);
-    } else if (period === 'last30') {
-      if ((now - vDate) / 86400000 <= 30) visited.add(v.dealerId);
-    } else if (period === 'last90') {
-      if ((now - vDate) / 86400000 <= 90) visited.add(v.dealerId);
-    }
-  });
-  return visited;
-}
-
-function updateMap() {
-  if (!mapInstance) return;
-
-  // Usuń stare markery
-  mapMarkers.forEach(m => m.remove());
-  mapMarkers = [];
-
-  const handlerFilter = document.getElementById('map-handler-filter').value;
-  const periodFilter = document.getElementById('map-period-filter').value;
-  const visitedIds = getVisitedDealerIds(periodFilter === 'all' ? null : periodFilter);
-
-  const filtered = state.dealers.filter(d => {
-    if (handlerFilter !== 'all' && d.handler !== handlerFilter) return false;
-    if (!d.lat || !d.lng) return false;
-    return true;
-  });
-
-  let visitedCount = 0;
-  const listItems = [];
-
-  filtered.forEach(d => {
-    const isVisited = visitedIds.has(d.id);
-    if (isVisited) visitedCount++;
-
-    // Kolor: zielony=odwiedzony, czerwony=nieodwiedzony
-    // Obwódka: złoty=Kasia(H1), niebieski=Lila(H2)
-    const fillColor = isVisited ? '#52c77a' : '#e05555';
-    const borderColor = d.handler === 'h1' ? '#d4a843' : '#5599e8';
-
-    const svgIcon = L.divIcon({
-      className: '',
-      html: `<svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="11" cy="11" r="8" fill="${fillColor}" stroke="${borderColor}" stroke-width="2.5" opacity="0.92"/>
-      </svg>`,
-      iconSize: [22, 22],
-      iconAnchor: [11, 11],
-      popupAnchor: [0, -14]
-    });
-
-    const lastVisit = state.visits
-      .filter(v => v.dealerId === d.id)
-      .sort((a,b) => b.date.localeCompare(a.date))[0];
-
-    const popupHtml = `
-      <div style="min-width:200px">
-        <div style="font-weight:600;font-size:14px;margin-bottom:6px">${d.name}</div>
-        <div style="font-size:12px;color:#8888a0;margin-bottom:8px">${d.city} · ${d.woj}</div>
-        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-          <span style="background:${d.handler==='h1'?'rgba(212,168,67,.2)':'rgba(85,153,232,.2)'};color:${d.handler==='h1'?'#d4a843':'#5599e8'};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${d.rks||d.handler}</span>
-          <span style="background:${isVisited?'rgba(82,199,122,.2)':'rgba(224,85,85,.2)'};color:${isVisited?'#52c77a':'#e05555'};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${isVisited?'Odwiedzony':'Nieodwiedzony'}</span>
-        </div>
-        <div style="font-size:12px;color:#8888a0">Obrót łącznie: <strong style="color:#eeeef2">${d.suma}k PLN</strong></div>
-        ${lastVisit ? `<div style="font-size:11px;color:#8888a0;margin-top:4px">Ostatnia wizyta: ${lastVisit.date}</div>` : ''}
-        <div style="margin-top:10px">
-          <button onclick="closeMapPopup();openDealer(${d.id})" style="background:#d4a843;color:#0d0d0f;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Otwórz kartę</button>
-        </div>
-      </div>`;
-
-    const marker = L.marker([d.lat, d.lng], { icon: svgIcon })
-      .bindPopup(popupHtml, { maxWidth: 280 })
-      .addTo(mapInstance);
-
-    mapMarkers.push(marker);
-
-    listItems.push({ d, isVisited });
-  });
-
-  // Aktualizuj licznik
-  const total = filtered.length;
-  document.getElementById('map-counter').textContent =
-    `${visitedCount} odwiedzonych / ${total} salonów (${total>0?Math.round(visitedCount/total*100):0}%)`;
-
-  // Lista pod mapą
-  const listEl = document.getElementById('map-dealer-list');
-  listEl.innerHTML = listItems
-    .sort((a,b) => b.isVisited - a.isVisited || b.d.suma - a.d.suma)
-    .map(item => { const d=item.d; const isVisited=item.isVisited; return `
-      <div class="map-card" onclick="openDealer(${d.id})">
-        <div class="map-dot" style="background:${isVisited?'#52c77a':'#e05555'}"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.name}</div>
-          <div style="font-size:11px;color:var(--text3)">${d.city} · ${d.suma}k PLN</div>
-        </div>
-        <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:${d.handler==='h1'?'rgba(212,168,67,.15)':'rgba(85,153,232,.15)'};color:${d.handler==='h1'?'#d4a843':'#5599e8'}">${d.handler==='h1'?'Polus':'Żywicki'}</span>
-      </div>`; }).join('');
-}
-
-function resetMapView() {
-  if (mapInstance) mapInstance.setView([52.0, 19.5], 6);
-}
-
-function closeMapPopup() {
-  if (mapInstance) mapInstance.closePopup();
-}
-
-// Inicjalizuj mapę gdy zakładka jest aktywna
-function showPage(id, navItem) {
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  if(navItem)navItem.classList.add('active');
-  closeMobileMenu();
-  renderAll();
-  if (id === 'mapa') {
-    setTimeout(() => {
-      initMap();
-      if (mapInstance) mapInstance.invalidateSize();
-    }, 100);
-  }
-}
-
-</script>
-</body>
-</html>
