@@ -640,7 +640,7 @@ function renderDrawerTab(tab){
 }
 
 </script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client"></script>
 <style>
 /* ── LOGIN SCREEN ── */
 .login-screen {
@@ -771,7 +771,7 @@ function renderDrawerTab(tab){
   <div class="login-card">
     <div class="login-logo">DoorCRM</div>
     <div class="login-sub">Panel sprzedaży · Zaloguj się aby kontynuować</div>
-    <button class="login-btn" onclick="signInWithGoogle()">
+    <button class="login-btn" id="google-login-btn" onclick="signInWithGoogle()" style="opacity:.5;cursor:wait">
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
       Zaloguj się przez Google
     </button>
@@ -1205,12 +1205,26 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfumoaHIwN4jBPg9j9m
 let currentUser = null;
 let googleClient = null;
 
+// Enable login button once Google Identity Services loads
+function waitForGoogle(attempt) {
+  if (typeof google !== 'undefined' && google.accounts) {
+    const btn = document.getElementById('google-login-btn');
+    if (btn) { btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+  } else if (attempt < 20) {
+    setTimeout(() => waitForGoogle(attempt + 1), 300);
+  }
+}
+window.addEventListener('load', () => waitForGoogle(0));
+
 function signInWithGoogle() {
-  setLoginStatus('Łączenie z Google...', '');
+  if (typeof google === 'undefined' || !google.accounts) {
+    setLoginStatus('Ładowanie Google... spróbuj za chwilę', 'pending');
+    setTimeout(signInWithGoogle, 1000);
+    return;
+  }
   googleClient = google.accounts.oauth2.initTokenClient({
-    client_id: '653742686677-cu4vbndhnsidqhm8a6qadhp5gdp3m8e1.apps.googleusercontent.com', // ← podmień po wdrożeniu
-    scope: 'email profile',
-    callback: handleGoogleToken,
+    client_id: '653742686677-cu4vbndhnsidqhm8a6qadhp5gdp3m8e1.apps.googleusercontent.com',
+callback: handleGoogleToken,
   });
   googleClient.requestAccessToken();
 }
