@@ -1255,7 +1255,7 @@ function onLoginSuccess() {
   const viewBtns = document.querySelectorAll('.view-btn');
   viewBtns.forEach(b => b.classList.toggle('active', b.dataset.view === (currentUser.handler === 'all' ? 'all' : currentUser.handler)));
 
-  loadData();
+  renderAll();
 }
 
 
