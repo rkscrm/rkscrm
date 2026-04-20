@@ -1091,14 +1091,6 @@ function renderWojModal(){
 function moveWoj(woj,from,to){tempWoj[from]=tempWoj[from].filter(w=>w!==woj);tempWoj[to].push(woj);renderWojModal();}
 function saveWojMapping(){state.wojMapping={h1:[...tempWoj.h1],h2:[...tempWoj.h2]};}
 
-function showPage(id,navItem){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  if(navItem)navItem.classList.add('active');
-  closeMobileMenu();
-  renderAll();
-}
 function toggleMobileMenu(){
   document.getElementById('sidebar').classList.toggle('mobile-open');
   document.getElementById('sidebar-overlay').classList.toggle('open');
@@ -1242,9 +1234,13 @@ function closeMapPopup() {
 }
 
 // Inicjalizuj mapę gdy zakładka jest aktywna
-const origShowPage = showPage;
 function showPage(id, navItem) {
-  origShowPage(id, navItem);
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(navItem)navItem.classList.add('active');
+  closeMobileMenu();
+  renderAll();
   if (id === 'mapa') {
     setTimeout(() => {
       initMap();
