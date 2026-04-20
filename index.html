@@ -640,7 +640,6 @@ function renderDrawerTab(tab){
 }
 
 </script>
-<script src="https://accounts.google.com/gsi/client"></script>
 <style>
 /* ── LOGIN SCREEN ── */
 .login-screen {
@@ -771,10 +770,13 @@ function renderDrawerTab(tab){
   <div class="login-card">
     <div class="login-logo">DoorCRM</div>
     <div class="login-sub">Panel sprzedaży · Zaloguj się aby kontynuować</div>
-    <button class="login-btn" id="google-login-btn" onclick="signInWithGoogle()" style="opacity:.5;cursor:wait">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
-      Zaloguj się przez Google
-    </button>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+      <input class="form-input" type="text" id="login-user" placeholder="Login" autocomplete="username" style="background:#1a1a1a;border-color:#333;color:#fff;text-align:center">
+      <input class="form-input" type="password" id="login-pass" placeholder="Hasło" autocomplete="current-password" style="background:#1a1a1a;border-color:#333;color:#fff;text-align:center" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="login-btn" onclick="doLogin()" style="background:var(--accent);color:#000;font-weight:600;border:none;justify-content:center">
+        Zaloguj się
+      </button>
+    </div>
     <div class="login-status" id="login-status"></div>
   </div>
 </div>
@@ -1195,73 +1197,31 @@ function renderDrawerTab(tab){
 <script>
 
 // ═══════════════════════════════════════
-//  KONFIGURACJA — UZUPEŁNIJ PO WDROŻENIU
+//  KONFIGURACJA
 // ═══════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfumoaHIwN4jBPg9j9mJ3F8X1BtoFABolGwiFPIQ1mw6DpPuICH7kdb62-NQzFY_Cp/exec'; // ← podmień po wdrożeniu
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfumoaHIwN4jBPg9j9mJ3F8X1BtoFABolGwiFPIQ1mw6DpPuICH7kdb62-NQzFY_Cp/exec';
 
 // ═══════════════════════════════════════
-//  AUTENTYKACJA GOOGLE
+//  UŻYTKOWNICY (login → hasło, rola)
 // ═══════════════════════════════════════
+const USERS = {
+  'maciej':  { pass: 'otif2026', name: 'Maciej',   role: 'admin',  handler: 'all',  isAdmin: true },
+  'polus':   { pass: 'polus26',  name: 'Polus',     role: 'user',   handler: 'h1',   isAdmin: false },
+  'zywicki': { pass: 'zyw26',    name: 'Żywicki',   role: 'user',   handler: 'h2',   isAdmin: false },
+};
+
 let currentUser = null;
-let googleClient = null;
 
-// Enable login button once Google Identity Services loads
-function waitForGoogle(attempt) {
-  if (typeof google !== 'undefined' && google.accounts) {
-    const btn = document.getElementById('google-login-btn');
-    if (btn) { btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
-  } else if (attempt < 20) {
-    setTimeout(() => waitForGoogle(attempt + 1), 300);
-  }
-}
-window.addEventListener('load', () => waitForGoogle(0));
-
-function signInWithGoogle() {
-  if (typeof google === 'undefined' || !google.accounts) {
-    setLoginStatus('Ładowanie Google... spróbuj za chwilę', 'pending');
-    setTimeout(signInWithGoogle, 1000);
+function doLogin() {
+  const login = (document.getElementById('login-user').value || '').trim().toLowerCase();
+  const pass  = (document.getElementById('login-pass').value || '').trim();
+  const user  = USERS[login];
+  if (!user || user.pass !== pass) {
+    setLoginStatus('Błędny login lub hasło.', 'error');
     return;
   }
-  googleClient = google.accounts.oauth2.initTokenClient({
-    client_id: '653742686677-cu4vbndhnsidqhm8a6qadhp5gdp3m8e1.apps.googleusercontent.com',
-callback: handleGoogleToken,
-  });
-  googleClient.requestAccessToken();
-}
-
-async function handleGoogleToken(tokenResponse) {
-  if (tokenResponse.error) {
-    setLoginStatus('Błąd logowania. Spróbuj ponownie.', 'error');
-    return;
-  }
-  setLoginStatus('Weryfikacja dostępu...', '');
-  try {
-    // Pobierz email użytkownika z Google
-    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-    });
-    const profile = await res.json();
-    currentUser = { email: profile.email, name: profile.name, picture: profile.picture };
-
-    // Sprawdź autoryzację w Apps Script
-    const authRes = await fetch(`${SCRIPT_URL}?user=${encodeURIComponent(profile.email)}`);
-    const auth = await authRes.json();
-
-    if (auth.ok) {
-      // Zalogowany i autoryzowany
-      currentUser.role = auth.user.role;
-      currentUser.isAdmin = auth.isAdmin;
-      onLoginSuccess();
-    } else if (auth.error === 'PENDING') {
-      setLoginStatus('⏳ Twój wniosek czeka na akceptację administratora.', 'pending');
-    } else if (auth.error === 'BLOCKED') {
-      setLoginStatus('🚫 Dostęp zablokowany. Skontaktuj się z administratorem.', 'error');
-    } else {
-      setLoginStatus('⏳ Wniosek o dostęp wysłany. Administrator otrzymał powiadomienie.', 'pending');
-    }
-  } catch(e) {
-    setLoginStatus('Błąd połączenia. Sprawdź internet i spróbuj ponownie.', 'error');
-  }
+  currentUser = { login, name: user.name, role: user.role, handler: user.handler, isAdmin: user.isAdmin };
+  onLoginSuccess();
 }
 
 function setLoginStatus(msg, type) {
@@ -1270,441 +1230,32 @@ function setLoginStatus(msg, type) {
   el.className = 'login-status' + (type ? ' ' + type : '');
 }
 
-async function onLoginSuccess() {
-  // Pokaż aplikację, ukryj ekran logowania
+function onLoginSuccess() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('main-app').style.display = 'flex';
 
-  // Pokaż chip użytkownika
-  document.getElementById('user-chip-wrap').innerHTML = `
-    <div class="user-info-chip">
-      <div class="user-dot"></div>
-      <span>${currentUser.name || currentUser.email}</span>
-    </div>`;
+  // Ustaw widok na podstawie roli
+  if (currentUser.handler !== 'all') {
+    state.view = currentUser.handler;
+  }
 
-  // Pokaż przycisk admina jeśli admin
+  // Pokaż chip użytkownika
+  document.getElementById('user-chip-wrap').innerHTML = \`
+    <div class="user-info-chip">
+      <div style="font-size:12px;font-weight:600;color:var(--text)">\${currentUser.name}</div>
+      <div style="font-size:11px;color:var(--text2)">\${currentUser.isAdmin ? '👑 Admin' : '🏪 Handlowiec'}</div>
+    </div>\`;
+
+  // Pokaż przycisk Admin tylko dla admina
   if (currentUser.isAdmin) {
     document.getElementById('nav-admin').style.display = 'flex';
   }
 
-  // Pobierz dane z serwera
-  await loadDataFromServer();
-}
+  // Ustaw filtr widoku
+  const viewBtns = document.querySelectorAll('.view-btn');
+  viewBtns.forEach(b => b.classList.toggle('active', b.dataset.view === (currentUser.handler === 'all' ? 'all' : currentUser.handler)));
 
-async function loadDataFromServer() {
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'GET_ALL', userEmail: currentUser.email })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      state.dealers = data.dealers;
-      state.visits  = data.visits;
-      state.tasks   = data.tasks;
-      renderAll();
-      if (typeof updateMap === 'function' && document.getElementById('page-mapa').classList.contains('active')) {
-        updateMap();
-      }
-    }
-  } catch(e) {
-    console.error('Błąd ładowania danych:', e);
-  }
-}
-
-// ── Zapis wizyty do serwera ──
-async function saveVisitToServer(visit) {
-  if (SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbwfumoaHIwN4jBPg9j9mJ3F8X1BtoFABolGwiFPIQ1mw6DpPuICH7kdb62-NQzFY_Cp/exec') return { ok: true }; // tryb offline
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'ADD_VISIT', visit, userEmail: currentUser?.email })
-    });
-    return await res.json();
-  } catch(e) { return { ok: false }; }
-}
-
-// ── Zapis zadania do serwera ──
-async function saveTaskToServer(task) {
-  if (SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbwfumoaHIwN4jBPg9j9mJ3F8X1BtoFABolGwiFPIQ1mw6DpPuICH7kdb62-NQzFY_Cp/exec') return { ok: true };
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'ADD_TASK', task, userEmail: currentUser?.email })
-    });
-    return await res.json();
-  } catch(e) { return { ok: false }; }
-}
-
-// ── Toggle zadania na serwerze ──
-async function toggleTaskOnServer(taskId) {
-  if (SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbwfumoaHIwN4jBPg9j9mJ3F8X1BtoFABolGwiFPIQ1mw6DpPuICH7kdb62-NQzFY_Cp/exec') return;
-  try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'TOGGLE_TASK', taskId, userEmail: currentUser?.email })
-    });
-  } catch(e) {}
-}
-
-// ── Update dealera na serwerze ──
-async function updateDealerOnServer(dealer) {
-  if (SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbwfumoaHIwN4jBPg9j9mJ3F8X1BtoFABolGwiFPIQ1mw6DpPuICH7kdb62-NQzFY_Cp/exec') return;
-  try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'UPDATE_DEALER', dealer, userEmail: currentUser?.email })
-    });
-  } catch(e) {}
-}
-
-// ═══════════════════════════════════════
-//  PANEL ADMINA
-// ═══════════════════════════════════════
-function openAdminPanel() {
-  document.getElementById('admin-panel').classList.add('open');
-  loadAdminUsers();
-}
-
-function closeAdminPanel() {
-  document.getElementById('admin-panel').classList.remove('open');
-}
-
-async function loadAdminUsers() {
-  const container = document.getElementById('admin-users-list');
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'GET_USERS', userEmail: currentUser.email })
-    });
-    const data = await res.json();
-    if (!data.ok) { container.innerHTML = '<div style="color:var(--red);font-size:13px">Błąd ładowania</div>'; return; }
-
-    const statusLabel = { ACTIVE: ['badge-green','Aktywny'], PENDING: ['badge-yellow','Oczekuje'], BLOCKED: ['badge-red','Zablokowany'] };
-    container.innerHTML = data.users.map(u => {
-      const [cls, lbl] = statusLabel[u.status] || ['badge-blue', u.status];
-      return `<div class="user-row">
-        <div style="flex:1">
-          <div class="user-email">${u.name || u.email}</div>
-          <div class="user-meta">${u.email} · ${u.role}</div>
-        </div>
-        <span class="badge ${cls}">${lbl}</span>
-        ${u.status === 'PENDING' ? `<button class="btn btn-primary btn-sm" onclick="adminApprove('${u.email}','${u.name||''}','user')">✓ Zatwierdź</button>` : ''}
-        ${u.status === 'ACTIVE' && u.email !== currentUser.email ? `<button class="btn btn-danger btn-sm" onclick="adminRevoke('${u.email}')">Blokuj</button>` : ''}
-      </div>`;
-    }).join('') || '<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Brak użytkowników</div>';
-  } catch(e) {
-    container.innerHTML = '<div style="color:var(--red);font-size:13px">Błąd połączenia</div>';
-  }
-}
-
-async function adminApprove(email, name, role) {
-  await fetch(SCRIPT_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'APPROVE_USER', email, name, role, userEmail: currentUser.email })
-  });
-  loadAdminUsers();
-}
-
-async function adminRevoke(email) {
-  if (!confirm(`Zablokować użytkownika ${email}?`)) return;
-  await fetch(SCRIPT_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'REVOKE_USER', email, userEmail: currentUser.email })
-  });
-  loadAdminUsers();
-}
-
-async function adminAddUser() {
-  const email = document.getElementById('admin-new-email').value.trim();
-  const name  = document.getElementById('admin-new-name').value.trim();
-  const role  = document.getElementById('admin-new-role').value;
-  if (!email) { alert('Podaj adres e-mail!'); return; }
-  await adminApprove(email, name, role);
-  document.getElementById('admin-new-email').value = '';
-  document.getElementById('admin-new-name').value = '';
-}
-
-const WOJS=['dolnośląskie','kujawsko-pomorskie','lubelskie','lubuskie','łódzkie','małopolskie','mazowieckie','opolskie','podkarpackie','podlaskie','pomorskie','śląskie','świętokrzyskie','warmińsko-mazurskie','wielkopolskie','zachodniopomorskie'];
-let state={
-  view:'all',statusFilter:'all',currentDealerId:null,editDealerId:null,
-  wojMapping:{h1:["dolnośląskie","kujawsko-pomorskie","lubuskie","łódzkie","opolskie","wielkopolskie","zachodniopomorskie","śląskie"],h2:["lubelskie","mazowieckie","małopolskie","podkarpackie","podlaskie","pomorskie","świętokrzyskie","warmińsko-mazurskie"]},
-  dealers:[{"id": 1, "name": "Multi Design Poznań", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "active", "rev": 232.9, "styczen": 121.3, "suma": 354.3, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.40681, "lng": 16.93663, "rks": "Polus", "cs": "Kasia"}, {"id": 2, "name": "DekoStudio", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "active", "rev": 125.9, "styczen": 58.8, "suma": 184.8, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.38752, "lng": 16.93176, "rks": "Polus", "cs": "Kasia"}, {"id": 3, "name": "Multi Design Poznań Detal", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "active", "rev": 74.9, "styczen": 3.3, "suma": 78.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.41514, "lng": 16.93289, "rks": "Polus", "cs": "Kasia"}, {"id": 4, "name": "Fenetro", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "active", "rev": 60.0, "styczen": 0.0, "suma": 60.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.92466, "lng": 15.48108, "rks": "Polus", "cs": "Kasia"}, {"id": 5, "name": "Multi Design Bielsko-Biała", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "active", "rev": 48.3, "styczen": 28.9, "suma": 77.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.83432, "lng": 19.02436, "rks": "Polus", "cs": "Kasia"}, {"id": 6, "name": "Interno", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "active", "rev": 31.1, "styczen": 35.1, "suma": 66.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.22589, "lng": 21.02002, "rks": "Żywicki", "cs": "Lila"}, {"id": 7, "name": "Nova BP", "contact": "", "phone": "", "email": "", "city": "Legionwo", "woj": "mazowieckie", "handler": "h2", "status": "active", "rev": 29.9, "styczen": 21.6, "suma": 51.5, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.39195, "lng": 20.93389, "rks": "Żywicki", "cs": "Lila"}, {"id": 8, "name": "Damont", "contact": "", "phone": "", "email": "", "city": "Radomyśl n.Sanem", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 26.5, "styczen": 6.7, "suma": 33.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.21617, "lng": 22.30058, "rks": "Żywicki", "cs": "Lila"}, {"id": 9, "name": "Fabryka Podłóg i Drzwi", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 26.4, "styczen": 0.0, "suma": 26.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.82762, "lng": 19.06897, "rks": "Polus", "cs": "Kasia"}, {"id": 10, "name": "Demo Projekt Warszawa Przekorna", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 26.1, "styczen": 5.4, "suma": 31.5, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24209, "lng": 21.01804, "rks": "Żywicki", "cs": "Lila"}, {"id": 11, "name": "Panas Schody", "contact": "", "phone": "", "email": "", "city": "Marcinowice", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 25.9, "styczen": 6.0, "suma": 32.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.75113, "lng": 16.83963, "rks": "Polus", "cs": "Kasia"}, {"id": 12, "name": "Domo-Strefa", "contact": "", "phone": "", "email": "", "city": "Babice Nowe", "woj": "mazowieckie", "handler": "h2", "status": "active", "rev": 23.7, "styczen": 51.1, "suma": 74.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.16375, "lng": 20.81166, "rks": "Żywicki", "cs": "Lila"}, {"id": 13, "name": "Insolut Białystok", "contact": "", "phone": "", "email": "", "city": "Białystok", "woj": "podlaskie", "handler": "h2", "status": "warning", "rev": 23.5, "styczen": 20.1, "suma": 43.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.11574, "lng": 23.15553, "rks": "Żywicki", "cs": "Lila"}, {"id": 14, "name": "Multi Design Tychy", "contact": "", "phone": "", "email": "", "city": "Tychy", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 21.9, "styczen": 18.5, "suma": 40.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.138, "lng": 18.95679, "rks": "Polus", "cs": "Kasia"}, {"id": 15, "name": "Demo Projekt Warszawa Bartycka", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 21.3, "styczen": 0.0, "suma": 21.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24368, "lng": 21.04128, "rks": "Żywicki", "cs": "Lila"}, {"id": 16, "name": "Białystok Expert", "contact": "", "phone": "", "email": "", "city": "Białystok", "woj": "podlaskie", "handler": "h2", "status": "warning", "rev": 18.1, "styczen": 11.7, "suma": 29.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.12321, "lng": 23.14079, "rks": "Żywicki", "cs": "Lila"}, {"id": 17, "name": "Dekorian ( MAM) Częstochowa", "contact": "", "phone": "", "email": "", "city": "Częstochowa", "woj": "śląskie", "handler": "h2", "status": "warning", "rev": 17.1, "styczen": 0.0, "suma": 17.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.83015, "lng": 19.11362, "rks": "Żywicki", "cs": "Lila"}, {"id": 18, "name": "Prestige Decor Gdynia", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 16.9, "styczen": 0.0, "suma": 16.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.5107, "lng": 18.51634, "rks": "Żywicki", "cs": "Lila"}, {"id": 19, "name": "Podłogi z Klasa", "contact": "", "phone": "", "email": "", "city": "Kielce", "woj": "świętokrzyskie", "handler": "h2", "status": "warning", "rev": 15.1, "styczen": 0.0, "suma": 15.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.87846, "lng": 20.64826, "rks": "Żywicki", "cs": "Lila"}, {"id": 20, "name": "Domsystem", "contact": "", "phone": "", "email": "", "city": "Stalowa Wola", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 15.0, "styczen": 0.0, "suma": 15.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.58149, "lng": 22.03787, "rks": "Żywicki", "cs": "Lila"}, {"id": 21, "name": "Demo Projekt Warszawa Targówek", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 12.9, "styczen": 0.0, "suma": 12.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24763, "lng": 21.02178, "rks": "Żywicki", "cs": "Lila"}, {"id": 22, "name": "Ebro", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "małopolskie", "handler": "h2", "status": "warning", "rev": 12.8, "styczen": 6.4, "suma": 19.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.04613, "lng": 19.92537, "rks": "Żywicki", "cs": "Lila"}, {"id": 23, "name": "Multi Form Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 12.6, "styczen": 3.9, "suma": 16.5, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.27071, "lng": 18.99444, "rks": "Polus", "cs": "Kasia"}, {"id": 24, "name": "Centrum Podłóg i Drzwi Prestige", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 12.3, "styczen": 0.0, "suma": 12.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.23769, "lng": 22.57826, "rks": "Żywicki", "cs": "Lila"}, {"id": 25, "name": "Quercus Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 11.5, "styczen": 0.0, "suma": 11.5, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.28196, "lng": 19.04076, "rks": "Polus", "cs": "Kasia"}, {"id": 26, "name": "Studio Rewers ( POL-ARM)", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 10.9, "styczen": 28.0, "suma": 38.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.02394, "lng": 21.97223, "rks": "Żywicki", "cs": "Lila"}, {"id": 27, "name": "Forma Floors", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 10.2, "styczen": 3.9, "suma": 14.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09613, "lng": 17.04296, "rks": "Polus", "cs": "Kasia"}, {"id": 28, "name": "Unilutron", "contact": "", "phone": "", "email": "", "city": "Bydgoszcz", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "warning", "rev": 10.2, "styczen": 0.0, "suma": 10.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.11887, "lng": 17.99837, "rks": "Polus", "cs": "Kasia"}, {"id": 29, "name": "Astfloor Opole", "contact": "", "phone": "", "email": "", "city": "Opole", "woj": "opolskie", "handler": "h1", "status": "warning", "rev": 9.9, "styczen": 0.0, "suma": 9.9, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.66544, "lng": 17.95323, "rks": "Polus", "cs": "Kasia"}, {"id": 30, "name": "PPHU Witbud", "contact": "", "phone": "", "email": "", "city": "Witkowo", "woj": "wielkopolskie", "handler": "h1", "status": "warning", "rev": 9.6, "styczen": 0.0, "suma": 9.6, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.41419, "lng": 17.80886, "rks": "Polus", "cs": "Kasia"}, {"id": 31, "name": "Deska Design Gdynia", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 9.6, "styczen": 3.3, "suma": 12.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.49692, "lng": 18.5458, "rks": "Żywicki", "cs": "Lila"}, {"id": 32, "name": "Venire Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "warning", "rev": 9.5, "styczen": 15.9, "suma": 25.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.75834, "lng": 19.4486, "rks": "Polus", "cs": "Kasia"}, {"id": 33, "name": "Studio Podłóg Z53", "contact": "", "phone": "", "email": "", "city": "Zamość", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 9.4, "styczen": 0.0, "suma": 9.4, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.72508, "lng": 23.23508, "rks": "Żywicki", "cs": "Lila"}, {"id": 34, "name": "Studio Domi Iława", "contact": "", "phone": "", "email": "", "city": "Iława", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "warning", "rev": 9.2, "styczen": 4.4, "suma": 13.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.56626, "lng": 19.55287, "rks": "Żywicki", "cs": "Lila"}, {"id": 35, "name": "Interior Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 9.1, "styczen": 3.8, "suma": 12.9, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.25585, "lng": 19.03813, "rks": "Polus", "cs": "Kasia"}, {"id": 36, "name": "Meritum", "contact": "", "phone": "", "email": "", "city": "Janki", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 8.4, "styczen": 0.0, "suma": 8.4, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.12881, "lng": 20.87774, "rks": "Żywicki", "cs": "Lila"}, {"id": 37, "name": "Projekt Home Rzeszów", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 8.3, "styczen": 0.0, "suma": 8.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.055, "lng": 22.01071, "rks": "Żywicki", "cs": "Lila"}, {"id": 38, "name": "Tomstyl", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 8.2, "styczen": 13.2, "suma": 21.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.82063, "lng": 19.05805, "rks": "Polus", "cs": "Kasia"}, {"id": 39, "name": "Studio Okien Gizycko", "contact": "", "phone": "", "email": "", "city": "Giżycko", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "warning", "rev": 7.9, "styczen": 0.0, "suma": 7.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.02665, "lng": 21.74836, "rks": "Żywicki", "cs": "Lila"}, {"id": 40, "name": "Max Fliz Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 7.7, "styczen": 0.0, "suma": 7.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.26177, "lng": 19.02531, "rks": "Polus", "cs": "Kasia"}, {"id": 41, "name": "Wzorcownia", "contact": "", "phone": "", "email": "", "city": "Jelenia Góra", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 7.4, "styczen": 0.0, "suma": 7.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.88006, "lng": 15.69787, "rks": "Polus", "cs": "Kasia"}, {"id": 42, "name": "Dekorian ( MAM) Kraków", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "świętokrzyskie", "handler": "h2", "status": "warning", "rev": 7.3, "styczen": 0.0, "suma": 7.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.07176, "lng": 19.92437, "rks": "Żywicki", "cs": "Lila"}, {"id": 43, "name": "Dekorian ( MAM) Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h2", "status": "warning", "rev": 7.0, "styczen": 0.0, "suma": 7.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.0924, "lng": 17.04078, "rks": "Żywicki", "cs": "Lila"}, {"id": 44, "name": "Archem", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 6.7, "styczen": 0.0, "suma": 6.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.34811, "lng": 18.67041, "rks": "Żywicki", "cs": "Lila"}, {"id": 45, "name": "Romax Wolska", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 6.6, "styczen": 0.0, "suma": 6.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23847, "lng": 21.02001, "rks": "Żywicki", "cs": "Lila"}, {"id": 46, "name": "Sąsiedzi Home By Maxfliz", "contact": "", "phone": "", "email": "", "city": "Tarnów", "woj": "małopolskie", "handler": "h2", "status": "warning", "rev": 6.6, "styczen": 0.0, "suma": 6.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.01562, "lng": 20.95586, "rks": "Żywicki", "cs": "Lila"}, {"id": 47, "name": "Demo Projekt Radom", "contact": "", "phone": "", "email": "", "city": "Radom", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 6.4, "styczen": 0.0, "suma": 6.4, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.38705, "lng": 21.14328, "rks": "Żywicki", "cs": "Lila"}, {"id": 48, "name": "Lamcoo", "contact": "", "phone": "", "email": "", "city": "Szczecin", "woj": "zachodniopomorskie", "handler": "h1", "status": "warning", "rev": 6.3, "styczen": 3.5, "suma": 9.8, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.42766, "lng": 14.52374, "rks": "Polus", "cs": "Kasia"}, {"id": 49, "name": "Przedsiębiorstwo Handlowo Usługowe Bartek", "contact": "", "phone": "", "email": "", "city": "Wysokie Mazowieckie", "woj": "podlaskie", "handler": "h2", "status": "warning", "rev": 6.3, "styczen": 0.0, "suma": 6.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.92085, "lng": 22.51826, "rks": "Żywicki", "cs": "Lila"}, {"id": 50, "name": "Doorplast", "contact": "", "phone": "", "email": "", "city": "Kobylnica k/Słupska", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 5.9, "styczen": 0.0, "suma": 5.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.41892, "lng": 17.10721, "rks": "Żywicki", "cs": "Lila"}, {"id": 51, "name": "Profi Parkiet Gdynia", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 5.6, "styczen": 0.0, "suma": 5.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.53158, "lng": 18.52772, "rks": "Żywicki", "cs": "Lila"}, {"id": 52, "name": "Superparkiet", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 5.6, "styczen": 10.7, "suma": 16.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.21829, "lng": 21.03255, "rks": "Żywicki", "cs": "Lila"}, {"id": 53, "name": "Belwedo", "contact": "", "phone": "", "email": "", "city": "Racibórz", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 5.5, "styczen": 7.5, "suma": 13.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.09789, "lng": 18.24562, "rks": "Polus", "cs": "Kasia"}, {"id": 54, "name": "Max Fliz Kraków", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "małopolskie", "handler": "h2", "status": "warning", "rev": 5.2, "styczen": 31.0, "suma": 36.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.08395, "lng": 19.91703, "rks": "Żywicki", "cs": "Lila"}, {"id": 55, "name": "Quercus Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "warning", "rev": 5.2, "styczen": 0.0, "suma": 5.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.75781, "lng": 19.45073, "rks": "Polus", "cs": "Kasia"}, {"id": 56, "name": "DGD Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 5.1, "styczen": 0.0, "suma": 5.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.10143, "lng": 17.05133, "rks": "Polus", "cs": "Kasia"}, {"id": 57, "name": "Interior Bielsko-Biała", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 5.1, "styczen": 0.0, "suma": 5.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.81801, "lng": 19.03068, "rks": "Polus", "cs": "Kasia"}, {"id": 58, "name": "Deska Design Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 4.9, "styczen": 11.0, "suma": 15.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.33474, "lng": 18.66377, "rks": "Żywicki", "cs": "Lila"}, {"id": 59, "name": "Dekorian ( MAM) Katowcie", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h2", "status": "inactive", "rev": 4.8, "styczen": 0.0, "suma": 4.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.24961, "lng": 18.98779, "rks": "Żywicki", "cs": "Lila"}, {"id": 60, "name": "Budus Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 4.6, "styczen": 14.3, "suma": 18.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.33876, "lng": 18.65066, "rks": "Żywicki", "cs": "Lila"}, {"id": 61, "name": "Multi Form Lubliniec", "contact": "", "phone": "", "email": "", "city": "Lubliniec", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 4.6, "styczen": 3.0, "suma": 7.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.66599, "lng": 18.66772, "rks": "Polus", "cs": "Kasia"}, {"id": 62, "name": "Belle Decor", "contact": "", "phone": "", "email": "", "city": "Biała Podlaska", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 4.5, "styczen": 0.0, "suma": 4.5, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.0282, "lng": 23.12501, "rks": "Żywicki", "cs": "Lila"}, {"id": 63, "name": "Max Fliz Warszawa", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 4.2, "styczen": 9.5, "suma": 13.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.21031, "lng": 20.99126, "rks": "Żywicki", "cs": "Lila"}, {"id": 64, "name": "Art-Mar Lublin", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 4.0, "styczen": 22.2, "suma": 26.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.24099, "lng": 22.58961, "rks": "Żywicki", "cs": "Lila"}, {"id": 65, "name": "Tophome", "contact": "", "phone": "", "email": "", "city": "Kołobrzeg", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 3.7, "styczen": 0.0, "suma": 3.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.18172, "lng": 15.58316, "rks": "Polus", "cs": "Kasia"}, {"id": 66, "name": "Żądlak", "contact": "", "phone": "", "email": "", "city": "Nowy Sącz", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 3.6, "styczen": 0.0, "suma": 3.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 49.60279, "lng": 20.72027, "rks": "Żywicki", "cs": "Lila"}, {"id": 67, "name": "Mariscal Salon Podłóg i Drzwi", "contact": "", "phone": "", "email": "", "city": "Radom", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 3.6, "styczen": 0.0, "suma": 3.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.39848, "lng": 21.14684, "rks": "Żywicki", "cs": "Lila"}, {"id": 68, "name": "Drzwi Marzeń", "contact": "", "phone": "", "email": "", "city": "Jabłonna k/Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 3.6, "styczen": 0.0, "suma": 3.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.37637, "lng": 20.96271, "rks": "Żywicki", "cs": "Lila"}, {"id": 69, "name": "Amada Bolesławiec", "contact": "", "phone": "", "email": "", "city": "Bolesławiec", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 3.5, "styczen": 0.0, "suma": 3.5, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.28662, "lng": 15.57656, "rks": "Polus", "cs": "Kasia"}, {"id": 70, "name": "Multi Form Przemyśl", "contact": "", "phone": "", "email": "", "city": "Przemyśl", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 3.5, "styczen": 0.0, "suma": 3.5, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 49.78708, "lng": 22.74819, "rks": "Żywicki", "cs": "Lila"}, {"id": 71, "name": "Dom-Styl Koszalin", "contact": "", "phone": "", "email": "", "city": "Koszalin", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 3.4, "styczen": 0.0, "suma": 3.4, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.19352, "lng": 16.15516, "rks": "Polus", "cs": "Kasia"}, {"id": 72, "name": "Wik Cieszyn", "contact": "", "phone": "", "email": "", "city": "Cieszyn", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 3.3, "styczen": 10.4, "suma": 13.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.75326, "lng": 18.64003, "rks": "Polus", "cs": "Kasia"}, {"id": 73, "name": "Ardago", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 3.2, "styczen": 12.7, "suma": 16.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.80365, "lng": 19.06802, "rks": "Polus", "cs": "Kasia"}, {"id": 74, "name": "Dekorian ( MAM) Poznań", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h2", "status": "inactive", "rev": 3.1, "styczen": 0.0, "suma": 3.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.3898, "lng": 16.92451, "rks": "Żywicki", "cs": "Lila"}, {"id": 75, "name": "Inter Gorzów Wlkp", "contact": "", "phone": "", "email": "", "city": "Gorzów Wlkp", "woj": "lubuskie", "handler": "h1", "status": "warning", "rev": 3.1, "styczen": 3.4, "suma": 6.5, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.72705, "lng": 15.23567, "rks": "Polus", "cs": "Kasia"}, {"id": 76, "name": "Venire Warszawa", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 3.1, "styczen": 16.2, "suma": 19.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23182, "lng": 21.00538, "rks": "Żywicki", "cs": "Lila"}, {"id": 77, "name": "Okno -Rest Rzeszów", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "warning", "rev": 3.0, "styczen": 6.1, "suma": 9.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.03376, "lng": 21.97516, "rks": "Żywicki", "cs": "Lila"}, {"id": 78, "name": "Montażownia", "contact": "", "phone": "", "email": "", "city": "Porosiuki", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 3.0, "styczen": 0.0, "suma": 3.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.16424, "lng": 23.34044, "rks": "Żywicki", "cs": "Lila"}, {"id": 79, "name": "Heldor", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 3.0, "styczen": 27.2, "suma": 30.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.83255, "lng": 19.04492, "rks": "Polus", "cs": "Kasia"}, {"id": 80, "name": "Stomi-Bud Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "warning", "rev": 2.8, "styczen": 2.2, "suma": 5.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.75461, "lng": 19.42137, "rks": "Polus", "cs": "Kasia"}, {"id": 81, "name": "Ad-Bud", "contact": "", "phone": "", "email": "", "city": "", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 2.8, "styczen": 7.3, "suma": 10.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.00326, "lng": 18.99294, "rks": "Żywicki", "cs": "Lila"}, {"id": 82, "name": "Studio AW Rzeszów", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 2.8, "styczen": 0.0, "suma": 2.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.05462, "lng": 21.97502, "rks": "Żywicki", "cs": "Lila"}, {"id": 83, "name": "Fimal Słupsk", "contact": "", "phone": "", "email": "", "city": "Słupsk", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 2.8, "styczen": 0.0, "suma": 2.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.48395, "lng": 17.0569, "rks": "Żywicki", "cs": "Lila"}, {"id": 84, "name": "Stolmat Częstochowa", "contact": "", "phone": "", "email": "", "city": "Częstochowa", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 2.8, "styczen": 0.0, "suma": 2.8, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.81705, "lng": 19.12, "rks": "Polus", "cs": "Kasia"}, {"id": 85, "name": "Euro Windows", "contact": "", "phone": "", "email": "", "city": "Suwałki", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 2.7, "styczen": 0.0, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.08898, "lng": 22.93025, "rks": "Żywicki", "cs": "Lila"}, {"id": 86, "name": "Wiking", "contact": "", "phone": "", "email": "", "city": "", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 2.7, "styczen": 0.0, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.00546, "lng": 19.01401, "rks": "Żywicki", "cs": "Lila"}, {"id": 87, "name": "Kenbud", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 2.6, "styczen": 0.0, "suma": 2.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.04605, "lng": 19.96814, "rks": "Żywicki", "cs": "Lila"}, {"id": 88, "name": "Studio Domi Nowe Miasto Lubawskie", "contact": "", "phone": "", "email": "", "city": "Nowe Miasto Lubawskie", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 2.6, "styczen": 0.0, "suma": 2.6, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.43391, "lng": 19.50443, "rks": "Żywicki", "cs": "Lila"}, {"id": 89, "name": "Wood Fashion", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 2.4, "styczen": 3.4, "suma": 5.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.2164, "lng": 21.00484, "rks": "Żywicki", "cs": "Lila"}, {"id": 90, "name": "Dkforma", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 2.0, "styczen": 0.0, "suma": 2.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.95033, "lng": 15.50526, "rks": "Polus", "cs": "Kasia"}, {"id": 91, "name": "Akan", "contact": "", "phone": "", "email": "", "city": "Gniezno", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.54542, "lng": 17.62821, "rks": "Polus", "cs": "Kasia"}, {"id": 92, "name": "Bemares ( Windoormatic)", "contact": "", "phone": "", "email": "", "city": "Rzeszów", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.03077, "lng": 21.98228, "rks": "Żywicki", "cs": "Lila"}, {"id": 93, "name": "Boba Elbląg", "contact": "", "phone": "", "email": "", "city": "Elbląg", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 9.1, "suma": 9.1, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.16024, "lng": 19.41658, "rks": "Żywicki", "cs": "Lila"}, {"id": 94, "name": "Budus Lubin", "contact": "", "phone": "", "email": "", "city": "Lubin", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.39474, "lng": 16.22003, "rks": "Polus", "cs": "Kasia"}, {"id": 95, "name": "Budus Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09415, "lng": 17.06206, "rks": "Polus", "cs": "Kasia"}, {"id": 96, "name": "Czesław Wróbel ( Dewro)", "contact": "", "phone": "", "email": "", "city": "Bestwinka", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.92962, "lng": 18.9493, "rks": "Polus", "cs": "Kasia"}, {"id": 97, "name": "DBN Koszalin", "contact": "", "phone": "", "email": "", "city": "Koszalin", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.16714, "lng": 16.17119, "rks": "Polus", "cs": "Kasia"}, {"id": 98, "name": "Dekorian ( MAM) Kielce", "contact": "", "phone": "", "email": "", "city": "Kielce", "woj": "świętokrzyskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 3.2, "suma": 3.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.86875, "lng": 20.65616, "rks": "Żywicki", "cs": "Lila"}, {"id": 99, "name": "Dekorian ( MAM) Opole", "contact": "", "phone": "", "email": "", "city": "Opole", "woj": "opolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.67528, "lng": 17.94374, "rks": "Żywicki", "cs": "Lila"}, {"id": 100, "name": "Dekorian ( MAM) Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.34946, "lng": 18.66929, "rks": "Żywicki", "cs": "Lila"}, {"id": 101, "name": "Dekorian ( MAM) Warszawa", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.22349, "lng": 21.00166, "rks": "Żywicki", "cs": "Lila"}, {"id": 102, "name": "Domwill", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.23915, "lng": 22.54896, "rks": "Żywicki", "cs": "Lila"}, {"id": 103, "name": "Ekspol Grudziądz", "contact": "", "phone": "", "email": "", "city": "Grudziądz", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.48197, "lng": 18.7261, "rks": "Polus", "cs": "Kasia"}, {"id": 104, "name": "Eliza Wolska", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.4236, "lng": 16.91454, "rks": "Polus", "cs": "Kasia"}, {"id": 105, "name": "FloorDoor", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.95133, "lng": 15.49707, "rks": "Polus", "cs": "Kasia"}, {"id": 106, "name": "Galeria Drzwi Prestige", "contact": "", "phone": "", "email": "", "city": "Sopot", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 4.0, "suma": 4.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.45103, "lng": 18.52693, "rks": "Żywicki", "cs": "Lila"}, {"id": 107, "name": "Herplast Słowacja", "contact": "", "phone": "", "email": "", "city": "Słowacja", "woj": "słowacja", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 48.66419, "lng": 19.68008, "rks": "Żywicki", "cs": "Lila"}, {"id": 108, "name": "Holz Master ( Status Drzwi)", "contact": "", "phone": "", "email": "", "city": "Pruszków", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 11.4, "suma": 11.4, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.17409, "lng": 20.77522, "rks": "Żywicki", "cs": "Lila"}, {"id": 109, "name": "Interhome", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.21575, "lng": 21.02521, "rks": "Żywicki", "cs": "Lila"}, {"id": 110, "name": "Intiri", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 3.3, "suma": 3.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.22038, "lng": 21.00167, "rks": "Żywicki", "cs": "Lila"}, {"id": 111, "name": "Luka", "contact": "", "phone": "", "email": "", "city": "Chwalęcice", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.6178, "lng": 15.69444, "rks": "Polus", "cs": "Kasia"}, {"id": 112, "name": "Magia Parkietu", "contact": "", "phone": "", "email": "", "city": "Częstochowa", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.82793, "lng": 19.1021, "rks": "Polus", "cs": "Kasia"}, {"id": 113, "name": "Majsterek", "contact": "", "phone": "", "email": "", "city": "Żywiec", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.67317, "lng": 19.174, "rks": "Polus", "cs": "Kasia"}, {"id": 114, "name": "Matex", "contact": "", "phone": "", "email": "", "city": "Nowa Sól", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.80742, "lng": 15.73036, "rks": "Polus", "cs": "Kasia"}, {"id": 115, "name": "Max Fliz Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.08343, "lng": 17.01667, "rks": "Polus", "cs": "Kasia"}, {"id": 116, "name": "Moderna Studio", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.28438, "lng": 19.02256, "rks": "Polus", "cs": "Kasia"}, {"id": 117, "name": "Monteria Siedlce", "contact": "", "phone": "", "email": "", "city": "Siedlce", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.17906, "lng": 22.30742, "rks": "Żywicki", "cs": "Lila"}, {"id": 118, "name": "MP Studio Pisz", "contact": "", "phone": "", "email": "", "city": "Pisz", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.64799, "lng": 21.83977, "rks": "Żywicki", "cs": "Lila"}, {"id": 119, "name": "Mstudio Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.77947, "lng": 19.44486, "rks": "Polus", "cs": "Kasia"}, {"id": 120, "name": "Multi Form Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 7.2, "suma": 7.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.34189, "lng": 18.64744, "rks": "Żywicki", "cs": "Lila"}, {"id": 121, "name": "Multi Form Pszczyna", "contact": "", "phone": "", "email": "", "city": "Pszczyna", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.99873, "lng": 18.96265, "rks": "Polus", "cs": "Kasia"}, {"id": 122, "name": "Olimar", "contact": "", "phone": "", "email": "", "city": "Mińsk Mazowiecki", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 17.7, "suma": 17.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.16642, "lng": 21.58229, "rks": "Żywicki", "cs": "Lila"}, {"id": 123, "name": "Omega Bydgoszcz", "contact": "", "phone": "", "email": "", "city": "Bydgoszcz", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 11.0, "suma": 11.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.12857, "lng": 18.00501, "rks": "Polus", "cs": "Kasia"}, {"id": 124, "name": "Open and Close", "contact": "", "phone": "", "email": "", "city": "", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.98915, "lng": 19.02808, "rks": "Żywicki", "cs": "Lila"}, {"id": 125, "name": "PHU Prestige Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.28373, "lng": 19.04195, "rks": "Polus", "cs": "Kasia"}, {"id": 126, "name": "PHU Profit Grudziądz", "contact": "", "phone": "", "email": "", "city": "Grudziądz", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.49384, "lng": 18.73192, "rks": "Polus", "cs": "Kasia"}, {"id": 127, "name": "Quercus Babice", "contact": "", "phone": "", "email": "", "city": "Babice", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.07181, "lng": 19.2962, "rks": "Żywicki", "cs": "Lila"}, {"id": 128, "name": "Quercus Kraków", "contact": "", "phone": "", "email": "", "city": "Kraków", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.05207, "lng": 19.92511, "rks": "Żywicki", "cs": "Lila"}, {"id": 129, "name": "Quercus Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 40.0, "suma": 40.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.08762, "lng": 17.05958, "rks": "Polus", "cs": "Kasia"}, {"id": 130, "name": "Remos", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 4.0, "suma": 4.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.10891, "lng": 17.0289, "rks": "Polus", "cs": "Kasia"}, {"id": 131, "name": "Roko", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.26155, "lng": 22.57084, "rks": "Żywicki", "cs": "Lila"}, {"id": 132, "name": "Romax Marywilska", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.22833, "lng": 20.98951, "rks": "Żywicki", "cs": "Lila"}, {"id": 133, "name": "Romax Al. Jerozolimskie", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23679, "lng": 21.00126, "rks": "Żywicki", "cs": "Lila"}, {"id": 134, "name": "Romax Domaniewska", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24302, "lng": 21.01126, "rks": "Żywicki", "cs": "Lila"}, {"id": 135, "name": "Sokółka Gdynia", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.52983, "lng": 18.53514, "rks": "Żywicki", "cs": "Lila"}, {"id": 136, "name": "Sokółka Łódź", "contact": "", "phone": "", "email": "", "city": "Łódź", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 2.7, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.77296, "lng": 19.46746, "rks": "Polus", "cs": "Kasia"}, {"id": 137, "name": "Sokółka Olsztyn", "contact": "", "phone": "", "email": "", "city": "Olsztyn", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.77309, "lng": 20.50796, "rks": "Żywicki", "cs": "Lila"}, {"id": 138, "name": "Sokółka Szczecin", "contact": "", "phone": "", "email": "", "city": "Szczecin", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.44785, "lng": 14.56218, "rks": "Polus", "cs": "Kasia"}, {"id": 139, "name": "Spectrem", "contact": "", "phone": "", "email": "", "city": "", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.99183, "lng": 19.01337, "rks": "Polus", "cs": "Kasia"}, {"id": 140, "name": "Sportex", "contact": "", "phone": "", "email": "", "city": "Kielce", "woj": "świętokrzyskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.88368, "lng": 20.63541, "rks": "Żywicki", "cs": "Lila"}, {"id": 141, "name": "Stoberg", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 5.9, "suma": 5.9, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.93211, "lng": 15.5138, "rks": "Polus", "cs": "Kasia"}, {"id": 142, "name": "Stolarka Premium (Klucz Serwis)", "contact": "", "phone": "", "email": "", "city": "Grójec", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.86406, "lng": 20.88687, "rks": "Żywicki", "cs": "Lila"}, {"id": 143, "name": "Studio Flooresy", "contact": "", "phone": "", "email": "", "city": "Sztum", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.93151, "lng": 19.00355, "rks": "Żywicki", "cs": "Lila"}, {"id": 144, "name": "Unico Wnętrze", "contact": "", "phone": "", "email": "", "city": "Zamość", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 13.3, "suma": 13.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.71965, "lng": 23.24143, "rks": "Żywicki", "cs": "Lila"}, {"id": 145, "name": "Veldom", "contact": "", "phone": "", "email": "", "city": "Sokółka", "woj": "podlaskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 3.0, "suma": 3.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.41299, "lng": 23.47412, "rks": "Żywicki", "cs": "Lila"}, {"id": 146, "name": "Studio Wnętrz Ostrołęka", "contact": "", "phone": "", "email": "", "city": "Ostrołęka", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.08235, "lng": 21.54327, "rks": "Żywicki", "cs": "Lila"}, {"id": 147, "name": "VOX Bielsko-Biała", "contact": "", "phone": "", "email": "", "city": "Bielsko-Biała", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 6.1, "suma": 6.1, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.81455, "lng": 19.03583, "rks": "Polus", "cs": "Kasia"}, {"id": 148, "name": "Zaffiro ( Aura Wnętrz)", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.25172, "lng": 19.02999, "rks": "Polus", "cs": "Kasia"}, {"id": 149, "name": "Ordis", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.25858, "lng": 22.57117, "rks": "Żywicki", "cs": "Lila"}, {"id": 150, "name": "Glass onion", "contact": "", "phone": "", "email": "", "city": "Gdynia", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.50649, "lng": 18.54535, "rks": "Żywicki", "cs": "Lila"}, {"id": 151, "name": "F.P.H 2M", "contact": "", "phone": "", "email": "", "city": "Toruń", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.02348, "lng": 18.61728, "rks": "Polus", "cs": "Kasia"}, {"id": 152, "name": "Otif Profil", "contact": "", "phone": "", "email": "", "city": "Witkowo", "woj": "wielkopolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.43874, "lng": 17.82407, "rks": "Żywicki", "cs": "Lila"}, {"id": 153, "name": "Artel Wrocław", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09864, "lng": 17.04895, "rks": "Polus", "cs": "Kasia"}, {"id": 154, "name": "Encanto", "contact": "", "phone": "", "email": "", "city": "Toruń", "woj": "kujawsko-pomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 53.00518, "lng": 18.60213, "rks": "Polus", "cs": "Kasia"}, {"id": 155, "name": "Greston", "contact": "", "phone": "", "email": "", "city": "Sękocin Nowy", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.07623, "lng": 20.8928, "rks": "Żywicki", "cs": "Lila"}, {"id": 156, "name": "Wik2 Cieszyn", "contact": "", "phone": "", "email": "", "city": "Cieszyn", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 49.73806, "lng": 18.66291, "rks": "Polus", "cs": "Kasia"}, {"id": 157, "name": "Perfekt Dom Siedlce", "contact": "", "phone": "", "email": "", "city": "Siedlce", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.1702, "lng": 22.26912, "rks": "Żywicki", "cs": "Lila"}, {"id": 158, "name": "Nowy Salon Drzwi i Podłóg", "contact": "", "phone": "", "email": "", "city": "Koszalin", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.17862, "lng": 16.14392, "rks": "Polus", "cs": "Kasia"}, {"id": 159, "name": "Składy VOX Poznań", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 2.7, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.40213, "lng": 16.91821, "rks": "Polus", "cs": "Kasia"}, {"id": 160, "name": "FHU Jawil Ostrołęka", "contact": "", "phone": "", "email": "", "city": "Ostrołęka", "woj": "mazowieckie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 6.0, "suma": 6.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.06335, "lng": 21.55205, "rks": "Żywicki", "cs": "Lila"}, {"id": 161, "name": "VOX Niepołomice", "contact": "", "phone": "", "email": "", "city": "Niepołomice", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.01895, "lng": 20.22091, "rks": "Żywicki", "cs": "Lila"}, {"id": 162, "name": "Wrobud II", "contact": "", "phone": "", "email": "", "city": "Łańcut", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 2.8, "suma": 2.8, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.08343, "lng": 22.22882, "rks": "Żywicki", "cs": "Lila"}, {"id": 163, "name": "Vinylownia", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.10571, "lng": 17.00576, "rks": "Polus", "cs": "Kasia"}, {"id": 164, "name": "Multi Design Bielany Wrocławskie", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 4.0, "suma": 4.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09666, "lng": 17.03089, "rks": "Polus", "cs": "Kasia"}, {"id": 165, "name": "Okno Rest Przeworsk", "contact": "", "phone": "", "email": "", "city": "Przeworsk", "woj": "podkarpackie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.06624, "lng": 22.51906, "rks": "Żywicki", "cs": "Lila"}, {"id": 166, "name": "Budus Katowice", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.25545, "lng": 19.03664, "rks": "Polus", "cs": "Kasia"}, {"id": 167, "name": "Stolarczyk Okna", "contact": "", "phone": "", "email": "", "city": "Dzierżoniów", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 2.9, "suma": 2.9, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.74752, "lng": 16.64568, "rks": "Polus", "cs": "Kasia"}, {"id": 168, "name": "Multi Form Gdańsk", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "pomorskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 7.2, "suma": 7.2, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 54.34189, "lng": 18.64744, "rks": "Żywicki", "cs": "Lila"}, {"id": 169, "name": "Evva", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24832, "lng": 20.99115, "rks": "Żywicki", "cs": "Lila"}, {"id": 170, "name": "Ekoparkiet", "contact": "", "phone": "", "email": "", "city": "Tomaszów Mazowiecki", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.53455, "lng": 20.00614, "rks": "Żywicki", "cs": "Lila"}, {"id": 171, "name": "Dom Architekta", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24515, "lng": 21.03823, "rks": "Żywicki", "cs": "Lila"}, {"id": 172, "name": "Decor Drzwi", "contact": "", "phone": "", "email": "", "city": "Gdańsk", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.35927, "lng": 18.64384, "rks": "Polus", "cs": "Kasia"}, {"id": 173, "name": "Prokres", "contact": "", "phone": "", "email": "", "city": "Łęka Opatowska", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.52086, "lng": 17.99075, "rks": "Polus", "cs": "Kasia"}, {"id": 174, "name": "Timberline", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23794, "lng": 21.00578, "rks": "Żywicki", "cs": "Lila"}, {"id": 175, "name": "Dobre Drzwi i Okna", "contact": "", "phone": "", "email": "", "city": "", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.99981, "lng": 18.9887, "rks": "Żywicki", "cs": "Lila"}, {"id": 176, "name": "MrMeble Konin", "contact": "", "phone": "", "email": "", "city": "Konin", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.23438, "lng": 18.22951, "rks": "Polus", "cs": "Kasia"}, {"id": 177, "name": "Klimek", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.24947, "lng": 20.9823, "rks": "Żywicki", "cs": "Lila"}, {"id": 178, "name": "Draft Poddebice", "contact": "", "phone": "", "email": "", "city": "Poddebice", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.88333, "lng": 18.92817, "rks": "Polus", "cs": "Kasia"}, {"id": 179, "name": "Draft Zduńska Wola", "contact": "", "phone": "", "email": "", "city": "Zduńska Wola", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.60776, "lng": 18.94273, "rks": "Polus", "cs": "Kasia"}, {"id": 180, "name": "Draft Sieradz", "contact": "", "phone": "", "email": "", "city": "Sieradz", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.56739, "lng": 18.7519, "rks": "Polus", "cs": "Kasia"}, {"id": 181, "name": "Wik Kołobrzeg", "contact": "", "phone": "", "email": "", "city": "Kołobrzeg", "woj": "zachodniopomorskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 54.17971, "lng": 15.58649, "rks": "Polus", "cs": "Kasia"}, {"id": 182, "name": "Studio La Casa", "contact": "", "phone": "", "email": "", "city": "Białystok", "woj": "podlaskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.11803, "lng": 23.18027, "rks": "Żywicki", "cs": "Lila"}, {"id": 183, "name": "Artex Białobrzegi", "contact": "", "phone": "", "email": "", "city": "Białobrzegi", "woj": "małopolskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.65211, "lng": 20.94158, "rks": "Żywicki", "cs": "Lila"}, {"id": 184, "name": "Dar Drzwi i Okien", "contact": "", "phone": "", "email": "", "city": "Olsztyn", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.80203, "lng": 20.46484, "rks": "Żywicki", "cs": "Lila"}, {"id": 185, "name": "MD Projekt", "contact": "", "phone": "", "email": "", "city": "Starogard Gdański", "woj": "pomorskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.971, "lng": 18.55478, "rks": "Żywicki", "cs": "Lila"}, {"id": 186, "name": "Okno-Spec", "contact": "", "phone": "", "email": "", "city": "Zamość", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 50.6973, "lng": 23.27402, "rks": "Żywicki", "cs": "Lila"}, {"id": 187, "name": "Paweł Grążka", "contact": "", "phone": "", "email": "", "city": "Ruchenka", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.80591, "lng": 18.502, "rks": "Żywicki", "cs": "Lila"}, {"id": 188, "name": "Prestige Wood", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 2.9, "suma": 2.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.25104, "lng": 22.57905, "rks": "Żywicki", "cs": "Lila"}, {"id": 189, "name": "Oknozbyt", "contact": "", "phone": "", "email": "", "city": "", "woj": "łódzkie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.98191, "lng": 18.98218, "rks": "Polus", "cs": "Kasia"}, {"id": 190, "name": "P&I Adrian Okrutny (Studio Holz)", "contact": "", "phone": "", "email": "", "city": "Radom", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.39871, "lng": 21.14818, "rks": "Żywicki", "cs": "Lila"}, {"id": 191, "name": "Quercus Warszawa", "contact": "", "phone": "", "email": "", "city": "Warszawa", "woj": "mazowieckie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.23466, "lng": 21.01726, "rks": "Żywicki", "cs": "Lila"}, {"id": 192, "name": "Sokółka Poznań", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.41796, "lng": 16.91707, "rks": "Polus", "cs": "Kasia"}, {"id": 193, "name": "Deco House", "contact": "", "phone": "", "email": "", "city": "Bielsk Podlaski", "woj": "podlaskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 4.3, "suma": 4.3, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 52.78336, "lng": 23.20658, "rks": "Żywicki", "cs": "Lila"}, {"id": 194, "name": "VOX Zielona Góra", "contact": "", "phone": "", "email": "", "city": "Zielona Góra", "woj": "lubuskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.95083, "lng": 15.47276, "rks": "Polus", "cs": "Kasia"}, {"id": 195, "name": "Bryldom", "contact": "", "phone": "", "email": "", "city": "Żary", "woj": "lubuskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.6141, "lng": 15.13707, "rks": "Żywicki", "cs": "Lila"}, {"id": 196, "name": "Interdom", "contact": "", "phone": "", "email": "", "city": "Lublin", "woj": "lubelskie", "handler": "h2", "status": "warning", "rev": 0.0, "styczen": 9.9, "suma": 9.9, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 51.24917, "lng": 22.58687, "rks": "Żywicki", "cs": "Lila"}, {"id": 197, "name": "Sebastian Pęcherczyk Astek", "contact": "", "phone": "", "email": "", "city": "Wrocław", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.09542, "lng": 17.03911, "rks": "Polus", "cs": "Kasia"}, {"id": 198, "name": "Bosco", "contact": "", "phone": "", "email": "", "city": "Katowice", "woj": "śląskie", "handler": "h1", "status": "warning", "rev": 0.0, "styczen": 11.2, "suma": 11.2, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 50.25896, "lng": 19.03667, "rks": "Polus", "cs": "Kasia"}, {"id": 199, "name": "P.H.U. Jacek Wielądek", "contact": "", "phone": "", "email": "", "city": "Ełk", "woj": "warmińsko-mazurskie", "handler": "h2", "status": "inactive", "rev": 0.0, "styczen": 2.7, "suma": 2.7, "plan": 0, "note": "Opiekun RKS: Żywicki", "lat": 53.81626, "lng": 22.39609, "rks": "Żywicki", "cs": "Lila"}, {"id": 200, "name": "Jupiter", "contact": "", "phone": "", "email": "", "city": "Legnica", "woj": "dolnośląskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 51.20723, "lng": 16.14281, "rks": "Polus", "cs": "Kasia"}, {"id": 201, "name": "Mobilo", "contact": "", "phone": "", "email": "", "city": "", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.01895, "lng": 19.00283, "rks": "Polus", "cs": "Kasia"}, {"id": 202, "name": "Wistom", "contact": "", "phone": "", "email": "", "city": "Poznań", "woj": "wielkopolskie", "handler": "h1", "status": "inactive", "rev": 0.0, "styczen": 0.0, "suma": 0.0, "plan": 0, "note": "Opiekun RKS: Polus", "lat": 52.42104, "lng": 16.94702, "rks": "Polus", "cs": "Kasia"}, {"id": 203, "name": "SUMA WSZYSTKICH SALONÓW", "contact": "", "phone": "", "email": "", "city": "", "woj": "", "handler": "h2", "status": "active", "rev": 2589.5, "styczen": 871.7, "suma": 2166.5, "plan": 0, "note": "Opiekun RKS: —", "lat": 51.99596, "lng": 18.97549, "rks": "Żywicki", "cs": "Lila"}],
-  visits:[],
-  tasks:[],
-  nextId:{dealer:204,visit:1,task:1,ekspo:1,szkolenie:1,architekt:1,koszt:1},
-  ekspozycje:[],szkolenia:[],architekci:[],koszty:[]
-};
-
-document.addEventListener('DOMContentLoaded',()=>{
-  populateWojSelect();
-  document.getElementById('v-date').value=new Date().toISOString().slice(0,10);
-  renderAll();
-});
-
-function populateWojSelect(){
-  document.getElementById('f-woj').innerHTML=WOJS.map(w=>`<option value="${w}">${w}</option>`).join('');
-}
-
-function renderAll(){renderDealers();renderVisitsPage();renderTasksGlobal();renderStats();
-  // Odśwież kalendarz jeśli jest aktywny
-  if(document.getElementById('page-kalendarz').classList.contains('active')) renderCalendar();
-  if(document.getElementById('page-ekspozycja')?.classList.contains('active')) renderEkspozycja();
-  if(document.getElementById('page-szkolenia')?.classList.contains('active')) renderSzkolenia();
-  if(document.getElementById('page-architekci')?.classList.contains('active')) renderArchitekci();
-  if(document.getElementById('page-koszty')?.classList.contains('active')) renderKoszty();
-}
-
-function setView(v){
-  state.view=v;
-  ['all','h1','h2'].forEach(x=>document.getElementById('chip-'+x).classList.toggle('active',x===v));
-  const subs={all:'Wszyscy partnerzy handlowi',h1:'Polus — 8 województw',h2:'Żywicki — 8 województw'};
-  document.getElementById('dealers-subtitle').textContent=subs[v];
-  renderAll();
-}
-
-function setStatusFilter(f,btn){
-  state.statusFilter=f;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  renderDealers();
-}
-
-function filteredDealers(){
-  const q=(document.getElementById('search-input').value||'').toLowerCase();
-  return state.dealers.filter(d=>{
-    if(state.view!=='all'&&d.handler!==state.view)return false;
-    if(state.statusFilter!=='all'&&d.status!==state.statusFilter)return false;
-    if(q&&!d.name.toLowerCase().includes(q)&&!d.city.toLowerCase().includes(q)&&!d.woj.toLowerCase().includes(q))return false;
-    return true;
-  });
-}
-
-function renderDealers(){
-  const dealers=filteredDealers();
-  document.getElementById('s-total').textContent=dealers.length;
-  document.getElementById('s-active').textContent=dealers.filter(d=>d.status==='active').length;
-  document.getElementById('s-warn').textContent=dealers.filter(d=>d.status==='warning').length;
-  document.getElementById('s-rev').textContent=dealers.reduce((s,d)=>s+d.rev,0);
-  const tbody=document.getElementById('dealers-tbody');
-  if(!dealers.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🏪</div><div class="empty-text">Brak dealerów</div></div></td></tr>`;return;}
-  tbody.innerHTML=dealers.map(d=>{
-    const pct=d.plan>0?Math.round(d.rev/d.plan*100):0;
-    const fc=pct>=100?'over':pct<60?'low':'';
-    const visits=state.visits.filter(v=>v.dealerId===d.id);
-    const last=visits.length?visits.sort((a,b)=>b.date.localeCompare(a.date))[0].date:null;
-    return `<tr class="clickable" onclick="openDealer(${d.id})">
-      <td><div class="dealer-name">${d.name}</div><div class="dealer-meta">${d.city} · ${d.contact||'—'}</div></td>
-      <td><span class="h-tag ${d.handler}">${d.rks||d.handler.toUpperCase()}</span></td>
-      <td><span style="font-size:11px;color:var(--text2)">${d.cs||'—'}</span></td>
-      <td style="font-size:12px">${d.woj}</td>
-      <td>${statusBadge(d.status)}</td>
-      <td style="font-size:12px">${last?formatDate(last):'<span style="color:var(--text3)">brak</span>'}</td>
-      <td style="font-size:12px;font-weight:500">${d.rev}k</td>
-      <td style="font-size:12px;color:var(--text2)">${d.styczen||0}k</td>
-      <td><span style="font-size:13px;font-weight:600;color:var(--accent)">${d.suma||0}k</span></td>
-      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editDealer(${d.id})">✏️</button></td>
-    </tr>`;
-  }).join('');
-}
-
-function statusBadge(s){const m={active:['badge-green','Aktywny'],warning:['badge-yellow','Uwaga'],inactive:['badge-red','Nieaktywny']};const[c,l]=m[s]||['badge-blue',s];return`<span class="badge ${c}">${l}</span>`;}
-function resultBadge(r){const m={order:['badge-green','Zamówienie'],interested:['badge-blue','Zainteresowany'],followup:['badge-yellow','Follow-up'],negative:['badge-red','Negatywny']};if(!r||!m[r])return'—';const[c,l]=m[r];return`<span class="badge ${c}">${l}</span>`;}
-function formatDate(d){if(!d)return'—';const[y,m,dd]=d.split('-');return`${dd}.${m}.${y}`;}
-function typeLabel(t){return{visit:'Wizyta',call:'Telefon',email:'E-mail',online:'Online'}[t]||t;}
-function dealerName(id){const d=state.dealers.find(x=>x.id===id);return d?d.name:'—';}
-
-function openDealer(id){
-  state.currentDealerId=id;
-  const d=state.dealers.find(x=>x.id===id);
-  document.getElementById('d-name').textContent=d.name;
-  document.getElementById('d-sub').textContent=`${d.city} · ${d.woj} · ${d.handler.toUpperCase()}`;
-  document.querySelectorAll('.drawer .tab').forEach((t,i)=>t.classList.toggle('active',i===0));
-  ['info','visits','tasks'].forEach((t,i)=>document.getElementById('dtab-'+t).style.display=i===0?'block':'none');
-  renderDrawerTab('info');
-  document.getElementById('drawer-overlay').classList.add('open');
-  document.getElementById('drawer').classList.add('open');
-}
-
-function closeDrawer(){
-  document.getElementById('drawer-overlay').classList.remove('open');
-  document.getElementById('drawer').classList.remove('open');
-  state.currentDealerId=null;
-}
-
-function showDrawerTab(tab,btn){
-  ['info','visits','tasks'].forEach(t=>document.getElementById('dtab-'+t).style.display=t===tab?'block':'none');
-  document.querySelectorAll('.drawer .tab').forEach((t,i)=>t.classList.toggle('active',['info','visits','tasks'][i]===tab));
-  renderDrawerTab(tab);
-}
-
-function renderDrawerTab(tab){
-  const id=state.currentDealerId;const d=state.dealers.find(x=>x.id===id);if(!d)return;
-  if(tab==='info'){
-    const pct=d.plan>0?Math.round(d.rev/d.plan*100):0;
-    document.getElementById('dtab-info').innerHTML=`
-      <div class="section"><div class="section-header"><div class="section-title">Dane kontaktowe</div></div>
-      <div class="info-grid">
-        <div><div class="info-label">Osoba kontaktowa</div><div class="info-value">${d.contact||'—'}</div></div>
-        <div><div class="info-label">Telefon</div><div class="info-value">${d.phone||'—'}</div></div>
-        <div><div class="info-label">E-mail</div><div class="info-value">${d.email||'—'}</div></div>
-        <div><div class="info-label">Miasto</div><div class="info-value">${d.city}</div></div>
-        <div><div class="info-label">Województwo</div><div class="info-value">${d.woj}</div></div>
-        <div><div class="info-label">RKS</div><div class="info-value"><span class="h-tag ${d.handler}">${d.rks||d.handler.toUpperCase()}</span></div></div>
-        <div><div class="info-label">Customer Service</div><div class="info-value" style="color:var(--text2)">${d.cs||'—'}</div></div>
-        <div><div class="info-label">Status</div><div class="info-value">${statusBadge(d.status)}</div></div>
-      </div>${d.note?`<div style="margin-top:12px;padding:11px;background:var(--surface2);border-radius:8px;font-size:13px;color:var(--text2)">${d.note}</div>`:''}</div>
-      <div class="section"><div class="section-header"><div class="section-title">Sprzedaż</div></div>
-      <div class="info-grid">
-        <div><div class="info-label">Obrót mies.</div><div class="info-value">${d.rev} tys. PLN</div></div>
-        <div><div class="info-label">Plan mies.</div><div class="info-value">${d.plan} tys. PLN</div></div>
-      </div>
-      <div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span style="color:var(--text2)">Realizacja planu</span><span style="color:${pct>=100?'var(--green)':pct<60?'var(--red)':'var(--accent)'};font-weight:600">${pct}%</span></div>
-      <div class="progress-bg" style="height:8px"><div class="progress-fill ${pct>=100?'over':pct<60?'low':''}" style="width:${Math.min(pct,100)}%;height:8px"></div></div></div></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openAddVisitForDealer(${d.id})">+ Wizyta</button>
-        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openAddTaskForDealer(${d.id})">+ Zadanie</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteDealer(${d.id})">🗑</button>
-      </div>`;
-  }
-  if(tab==='visits'){
-    const visits=state.visits.filter(v=>v.dealerId===id).sort((a,b)=>b.date.localeCompare(a.date));
-    document.getElementById('dtab-visits').innerHTML=`<div style="margin-bottom:12px"><button class="btn btn-primary btn-sm" onclick="openAddVisitForDealer(${id})">+ Dodaj wizytę</button></div>${visits.length?visits.map(v=>`<div class="visit-card"><div class="visit-top"><span class="visit-date">${formatDate(v.date)}</span><span class="visit-who">${v.handler.toUpperCase()} · ${typeLabel(v.type)}</span></div><div class="visit-note">${v.note}</div><div style="margin-top:7px">${resultBadge(v.result)}</div></div>`).join(''):`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Brak wizyt</div></div>`}`;
-  }
-  if(tab==='tasks'){
-    const tasks=state.tasks.filter(t=>t.dealerId===id);
-    document.getElementById('dtab-tasks').innerHTML=`<div style="margin-bottom:12px"><button class="btn btn-primary btn-sm" onclick="openAddTaskForDealer(${id})">+ Dodaj zadanie</button></div>${tasks.length?tasks.map(taskCard).join(''):`<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">Brak zadań</div></div>`}`;
-  }
-}
-
-function taskCard(t){
-  const today=new Date().toISOString().slice(0,10);
-  const ov=!t.done&&t.deadline&&t.deadline<today;
-  return`<div class="task-card"><div class="task-check ${t.done?'done':''}" onclick="toggleTask(${t.id})"></div><div class="task-body"><div class="task-text ${t.done?'done':''}">${t.text}</div><div class="task-meta">${t.handler==='both'?'Obaj':t.handler.toUpperCase()}${t.dealerId?' · '+dealerName(t.dealerId):''}</div></div>${t.deadline?`<div class="task-deadline ${ov?'overdue':''}">${formatDate(t.deadline)}</div>`:''}</div>`;
-}
-
-function toggleTask(id){const t=state.tasks.find(x=>x.id===id);if(t){t.done=!t.done;renderAll();if(state.currentDealerId)renderDrawerTab('tasks');toggleTaskOnServer(id);}}
-
-function renderVisitsPage(){
-  const visits=[...state.visits].sort((a,b)=>b.date.localeCompare(a.date)).filter(v=>state.view==='all'||v.handler===state.view);
-  const tbody=document.getElementById('visits-tbody');
-  if(!visits.length){tbody.innerHTML=`<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Brak wizyt</div></div></td></tr>`;return;}
-  tbody.innerHTML=visits.map(v=>`<tr><td style="font-size:12px">${formatDate(v.date)}</td><td><div style="font-weight:500;font-size:13px">${dealerName(v.dealerId)}</div></td><td><span class="h-tag ${v.handler}">${v.handler.toUpperCase()}</span></td><td style="font-size:12px">${typeLabel(v.type)}</td><td style="font-size:12px;color:var(--text2);max-width:280px">${v.note}</td><td>${resultBadge(v.result)}</td></tr>`).join('');
-}
-
-function renderTasksGlobal(){
-  const tasks=state.tasks.filter(t=>state.view==='all'||t.handler===state.view||t.handler==='both');
-  const open=tasks.filter(t=>!t.done),done=tasks.filter(t=>t.done);
-  let html='';
-  if(open.length){html+=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:10px">Do wykonania (${open.length})</div>`;html+=open.map(taskCard).join('');}
-  if(done.length){html+=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin:18px 0 10px">Zakończone (${done.length})</div>`;html+=done.map(taskCard).join('');}
-  if(!tasks.length)html=`<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">Brak zadań</div></div>`;
-  document.getElementById('tasks-global-list').innerHTML=html;
-}
-
-function renderStats(){
-  const now=new Date();
-  const period = window._statsPeriod || 'month';
-  
-  // Period bounds
-  let dateFrom = '';
-  if(period==='week'){
-    const d=new Date(now); d.setDate(d.getDate()-d.getDay()+1);
-    dateFrom=d.toISOString().slice(0,10);
-  } else if(period==='month'){
-    dateFrom=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-  } else if(period==='quarter'){
-    const q=Math.floor(now.getMonth()/3);
-    dateFrom=`${now.getFullYear()}-${String(q*3+1).padStart(2,'0')}-01`;
-  } else if(period==='year'){
-    dateFrom=`${now.getFullYear()}-01-01`;
-  }
-  const dateTo = now.toISOString().slice(0,10);
-  const ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  
-  // Basic counts (still month-based for widget cards)
-  document.getElementById('st-visits').textContent=state.visits.filter(v=>v.date.startsWith(ym)).length;
-  document.getElementById('st-tasks-open').textContent=state.tasks.filter(t=>!t.done).length;
-  document.getElementById('st-tasks-done').textContent=state.tasks.filter(t=>t.done).length;
-  
-  // Per-RKS cards with period revenue
-  const rksCards = document.getElementById('stats-rks-cards');
-  if(rksCards){
-    const periodLabel = {week:'ten tydzień',month:'ten miesiąc',quarter:'ten kwartał',year:'ten rok'}[period];
-    ['h1','h2'].forEach(h=>{
-      const dealers = state.dealers.filter(d=>d.handler===h && d.id!==203);
-      const totalRev = dealers.reduce((s,d)=>s+(d.suma||d.rev||0),0);
-      const totalPlan = dealers.reduce((s,d)=>s+(d.plan||0),0);
-      const visits = state.visits.filter(v=>v.date>=dateFrom&&v.date<=dateTo&&v.handler===h).length;
-      const pct = totalPlan>0?Math.round(totalRev/totalPlan*100):0;
-      const color = h==='h1'?'var(--accent)':'var(--blue)';
-      const name = h==='h1'?'Polus':'Żywicki';
-      const cs = h==='h1'?'Kasia':'Lila';
-      const el = rksCards.children[h==='h1'?0:1];
-      if(el) el.innerHTML = `
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
-          <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:12px">${name} <span style="font-weight:400;color:var(--text3)">(CS: ${cs})</span></div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-            <div><div style="font-size:11px;color:var(--text2)">YTD obrót</div><div style="font-size:20px;font-weight:700">${(totalRev/1000).toFixed(1)}<span style="font-size:12px;color:var(--text3)"> tys.</span></div></div>
-            <div><div style="font-size:11px;color:var(--text2)">Plan 2026</div><div style="font-size:20px;font-weight:700">${(totalPlan/1000).toFixed(1)}<span style="font-size:12px;color:var(--text3)"> tys.</span></div></div>
-            <div><div style="font-size:11px;color:var(--text2)">Realizacja</div><div style="font-size:20px;font-weight:700;color:${pct>=100?'var(--green)':pct<50?'var(--red)':color}">${pct}%</div></div>
-          </div>
-          <div style="margin-top:10px;font-size:12px;color:var(--text2)">Wizyty (${periodLabel}): <b>${visits}</b> · Salonów: <b>${dealers.length}</b></div>
-        </div>`;
-    });
-    // Ensure two children exist
-    while(rksCards.children.length < 2) rksCards.appendChild(document.createElement('div'));
-  }
-
-  // Networks
-  const NETWORKS = [
-    {key:'multi', label:'Multi Design / Multi Form', patterns:['Multi Design','Multi Form']},
-    {key:'maxfliz', label:'Max Fliz', patterns:['Max Fliz']},
-    {key:'dekorian', label:'Dekorian (M&M)', patterns:['Dekorian','MAM']},
-    {key:'quercus', label:'Quercus', patterns:['Quercus']},
-    {key:'budus', label:'Budus', patterns:['Budus']},
-  ];
-  const netEl = document.getElementById('stats-networks');
-  if(netEl){
-    netEl.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
-      <th>Sieć</th><th>Salonów</th><th>YTD obrót</th><th>Plan 2026</th><th>Realizacja</th><th>Salony</th>
-    </tr></thead><tbody>
-    ${NETWORKS.map(net=>{
-      const salons = state.dealers.filter(d=>d.id!==203 && net.patterns.some(p=>d.name.toLowerCase().includes(p.toLowerCase())));
-      const rev = salons.reduce((s,d)=>s+(d.suma||d.rev||0),0);
-      const plan = salons.reduce((s,d)=>s+(d.plan||0),0);
-      const pct = plan>0?Math.round(rev/plan*100):0;
-      const salonLinks = salons.map(d=>`<span style="cursor:pointer;color:var(--accent);font-size:11px" onclick="openDealer(${d.id})">${d.name}</span>`).join(', ');
-      return `<tr>
-        <td style="font-weight:600">${net.label}</td>
-        <td style="text-align:center">${salons.length}</td>
-        <td style="font-weight:600">${(rev/1000).toFixed(1)} tys. PLN</td>
-        <td>${plan>0?(plan/1000).toFixed(1)+' tys. PLN':'—'}</td>
-        <td><span style="color:${pct>=100?'var(--green)':pct<50?'var(--red)':'var(--text)'};font-weight:600">${plan>0?pct+'%':'—'}</span></td>
-        <td style="max-width:280px;font-size:11px">${salonLinks}</td>
-      </tr>`;
-    }).join('')}
-    </tbody></table></div>`;
-  }
-
-  // Per-dealer tables
-  ['h1','h2'].forEach(h=>{
-    const tbody=document.getElementById('stats-'+h+'-tbody');
-    const dealers=state.dealers.filter(d=>d.handler===h && d.id!==203);
-    tbody.innerHTML=dealers.map(d=>{
-      const vc=state.visits.filter(v=>v.dealerId===d.id&&v.date>=dateFrom&&v.date<=dateTo).length;
-      const rev=d.suma||d.rev||0;
-      const pct=d.plan>0?Math.round(rev/d.plan*100):0;
-      return `<tr><td style="cursor:pointer;color:var(--accent)" onclick="openDealer(${d.id})">${d.name}</td><td>${vc}</td><td>${(rev/1000).toFixed(1)}k</td><td style="color:${pct>=100?'var(--green)':pct<60?'var(--red)':'var(--text)'}">${pct}%</td></tr>`;
-    }).join('');
-  });
-}
-
-function setStatsPeriod(period, btn){
-  window._statsPeriod = period;
-  document.querySelectorAll('#page-stats .btn[id^="period-"]').forEach(b=>b.classList.remove('btn-primary'));
-  btn.classList.add('btn-primary');
-  renderStats();
+  loadData();
 }
 
 
