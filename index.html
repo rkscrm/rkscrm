@@ -695,35 +695,66 @@ tr.clickable:hover td{background:rgba(212,168,67,.04);cursor:pointer;}
 // ═══════════════════════════════════════
 //  KONFIGURACJA
 // ═══════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfumoaHIwN4jBPg9j9mJ3F8X1BtoFABolGwiFPIQ1mw6DpPuICH7kdb62-NQzFY_Cp/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxuaiX7T8svE9Ovyc4zKo4QmB47Ly-G6o8Yc6rZ88j_IYVPIC_fE9OeLtyv1pzCjhkPtA/exec';
 
-const USERS = {
-  'maciej':  { pass: 'Otif@2026',  name: 'Maciej',  handler: 'all', isAdmin: true },
-  'polus':   { pass: 'Polus#2026', name: 'Polus',   handler: 'h1',  isAdmin: false },
-  'zywicki': { pass: 'Zywic@2026', name: 'Zywicki', handler: 'h2',  isAdmin: false },
-  'adam':    { pass: 'Darul#2026', name: 'Adam',    handler: 'all', isAdmin: false },
-  'lukasz':  { pass: 'Pietr@2026', name: 'Lukasz',  handler: 'all', isAdmin: false },
-};
+// Brak haseł w kodzie — wszystko weryfikowane po stronie serwera (Google Apps Script)
 let currentUser = null;
+let sessionToken = null;
 
-function doLogin() {
+async function doLogin() {
   const login = (document.getElementById('login-user').value||'').trim().toLowerCase();
   const pass  = (document.getElementById('login-pass').value||'').trim();
-  const user  = USERS[login];
-  if (!user || user.pass !== pass) {
-    const el = document.getElementById('login-status');
-    el.textContent = 'Błędny login lub hasło.';
-    el.className = 'login-status error';
+  if (!login || !pass) {
+    setLoginStatus('Wpisz login i hasło.', 'error');
     return;
   }
-  currentUser = { login, name: user.name, handler: user.handler, isAdmin: user.isAdmin };
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('main-app').style.display = 'flex';
-  if (currentUser.handler !== 'all') state.view = currentUser.handler;
-  document.getElementById('user-chip-wrap').innerHTML =
-    '<div class="user-info-chip"><div style="font-size:12px;font-weight:600;color:var(--text)">'+currentUser.name+'</div><div style="font-size:11px;color:var(--text2)">'+(currentUser.isAdmin?'👑 Admin':'🏪 Handlowiec')+'</div></div>';
-  if (currentUser.isAdmin) document.getElementById('nav-admin').style.display = 'flex';
-  renderAll();
+  setLoginStatus('Logowanie…', 'pending');
+  document.querySelector('.login-btn').disabled = true;
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'login', login, password: pass })
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      setLoginStatus(data.error || 'Błędny login lub hasło.', 'error');
+      document.querySelector('.login-btn').disabled = false;
+      return;
+    }
+    sessionToken = data.token;
+    currentUser = data.user;
+    // Wczytaj dane z serwera
+    state.dealers = (data.dealers || []).map(d => ({...d, id: +d.id||d.id, rev: +d.rev||0, plan: +d.plan||0, lat: +d.lat||null, lng: +d.lng||null}));
+    state.visits  = (data.visits  || []).map(v => ({...v, id: +v.id||v.id, dealerId: +v.dealerId||v.dealerId}));
+    state.tasks   = (data.tasks   || []).map(t => ({...t, id: +t.id||t.id, dealerId: +t.dealerId||null, done: t.done==='true'||t.done===true}));
+    state.nextId.dealer = Math.max(0, ...state.dealers.map(d=>+d.id||0)) + 1;
+    state.nextId.visit  = Math.max(0, ...state.visits.map(v=>+v.id||0))  + 1;
+    state.nextId.task   = Math.max(0, ...state.tasks.map(t=>+t.id||0))   + 1;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
+    if (currentUser.handler !== 'all') state.view = currentUser.handler;
+    document.getElementById('user-chip-wrap').innerHTML =
+      '<div class="user-info-chip"><div style="font-size:12px;font-weight:600;color:var(--text)">'+currentUser.name+'</div><div style="font-size:11px;color:var(--text2)">'+(currentUser.isAdmin?'👑 Admin':'🏪 Handlowiec')+'</div></div>';
+    if (currentUser.isAdmin) document.getElementById('nav-admin').style.display = 'flex';
+    renderAll();
+  } catch(e) {
+    setLoginStatus('Błąd połączenia z serwerem. Sprawdź internet.', 'error');
+    document.querySelector('.login-btn').disabled = false;
+  }
+}
+
+async function apiCall(body) {
+  if (!sessionToken) return { ok: false, error: 'Brak sesji' };
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ ...body, token: sessionToken })
+    });
+    return await res.json();
+  } catch(e) {
+    console.warn('API error:', e);
+    return { ok: false, error: e.toString() };
+  }
 }
 
 function setLoginStatus(msg,type){
@@ -890,7 +921,7 @@ function taskCard(t){
   return`<div class="task-card"><div class="task-check ${t.done?'done':''}" onclick="toggleTask(${t.id})"></div><div class="task-body"><div class="task-text ${t.done?'done':''}">${t.text}</div><div class="task-meta">${t.handler==='both'?'Obaj':t.handler.toUpperCase()}${t.dealerId?' · '+dealerName(t.dealerId):''}</div></div>${t.deadline?`<div class="task-deadline ${ov?'overdue':''}">${formatDate(t.deadline)}</div>`:''}</div>`;
 }
 
-function toggleTask(id){const t=state.tasks.find(x=>x.id===id);if(t){t.done=!t.done;renderAll();if(state.currentDealerId)renderDrawerTab('tasks');toggleTaskOnServer(id);}}
+function toggleTask(id){const t=state.tasks.find(x=>x.id===id);if(t){t.done=!t.done;renderAll();if(state.currentDealerId)renderDrawerTab('tasks');apiCall({action:'saveTask',task:t});}}
 
 function renderVisitsPage(){
   const visits=[...state.visits].sort((a,b)=>b.date.localeCompare(a.date)).filter(v=>state.view==='all'||v.handler===state.view);
@@ -950,16 +981,14 @@ function saveDealer(){
   const name=document.getElementById('f-name').value.trim();
   if(!name){alert('Podaj nazwę dealera!');return;}
   const obj={name,contact:document.getElementById('f-contact').value,phone:document.getElementById('f-phone').value,email:document.getElementById('f-email').value,city:document.getElementById('f-city').value,woj:document.getElementById('f-woj').value,handler:document.getElementById('f-handler').value,status:document.getElementById('f-status').value,rev:parseFloat(document.getElementById('f-rev').value)||0,plan:parseFloat(document.getElementById('f-plan').value)||0,note:document.getElementById('f-note').value};
-  if(state.editDealerId){Object.assign(state.dealers.find(d=>d.id===state.editDealerId),obj);}
+  if(state.editDealerId){Object.assign(state.dealers.find(d=>d.id===state.editDealerId),obj);obj.id=state.editDealerId;}
   else{obj.id=state.nextId.dealer++;state.dealers.push(obj);}
   closeModal('modal-dealer');renderAll();
   if(state.currentDealerId)renderDrawerTab('info');
-  // Sync z serwerem
-  const saved = state.editDealerId ? state.dealers.find(d=>d.id===state.editDealerId) : null;
-  if(saved) updateDealerOnServer(saved);
+  apiCall({action:'saveDealer', dealer: obj});
 }
 
-function deleteDealer(id){if(!confirm('Usunąć tego dealera?'))return;state.dealers=state.dealers.filter(d=>d.id!==id);closeDrawer();renderAll();}
+function deleteDealer(id){if(!confirm('Usunąć tego dealera?'))return;state.dealers=state.dealers.filter(d=>d.id!==id);closeDrawer();renderAll();apiCall({action:'deleteDealer',id});}
 
 function populateDealerSelect(selId,selected){
   document.getElementById(selId).innerHTML=state.dealers.map(d=>`<option value="${d.id}"${d.id===selected?' selected':''}>${d.name}</option>`).join('');
@@ -979,8 +1008,7 @@ async function saveVisit(){
   state.visits.push(visit);
   closeModal('modal-visit');document.getElementById('v-note').value='';renderAll();
   if(state.currentDealerId)renderDrawerTab('visits');
-  // Zapisz na serwerze w tle
-  saveVisitToServer(visit);
+  apiCall({action:'saveVisit', visit});
 }
 
 function openAddTaskGlobal(){populateTaskDealerSelect(null);document.getElementById('t-text').value='';document.getElementById('t-deadline').value='';openModal('modal-task');}
@@ -993,7 +1021,7 @@ async function saveTask(){
   state.tasks.push(task);
   closeModal('modal-task');renderAll();
   if(state.currentDealerId)renderDrawerTab('tasks');
-  saveTaskToServer(task);
+  apiCall({action:'saveTask', task});
 }
 
 let tempWoj=null;
