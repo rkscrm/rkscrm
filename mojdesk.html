@@ -26,6 +26,9 @@
     --amber: #EF9F27;
     --amber-bg: #FAEEDA;
     --amber-text: #633806;
+    --blue: #378ADD;
+    --blue-bg: #E6F1FB;
+    --blue-text: #185FA5;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -41,6 +44,8 @@
       --red-text: #f09595;
       --amber-bg: #2e2010;
       --amber-text: #FAC775;
+      --blue-bg: #0c2a45;
+      --blue-text: #85B7EB;
     }
   }
 
@@ -54,9 +59,9 @@
     padding-bottom: env(safe-area-inset-bottom, 20px);
   }
 
+  /* PORTRAIT */
   .app { max-width: 430px; margin: 0 auto; padding: 0 16px; }
 
-  /* Header */
   .header {
     padding: 56px 0 16px;
     position: sticky;
@@ -71,14 +76,19 @@
   .greeting { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
   .dateline { font-size: 13px; color: var(--text2); margin-top: 2px; }
 
-  /* Stats */
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px 0 12px; }
-  .stat { background: var(--bg2); border-radius: var(--radius-sm); padding: 14px; }
+  .stat { background: var(--bg2); border-radius: var(--radius-sm); padding: 14px; position: relative; }
   .stat-num { font-size: 28px; font-weight: 600; letter-spacing: -1px; }
   .stat-num.red { color: var(--red); }
   .stat-label { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .sort-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 16px; padding: 4px;
+    border-radius: 6px;
+  }
+  .sort-btn:active { background: var(--bg3); }
 
-  /* Add area */
   .add-area { padding-bottom: 12px; }
 
   .voice-btn {
@@ -147,7 +157,6 @@
   }
   .add-btn:active { background: var(--bg2); }
 
-  /* Filters */
   .filters {
     display: flex;
     gap: 6px;
@@ -176,7 +185,6 @@
     border-color: var(--text);
   }
 
-  /* Tasks */
   .tasks { display: flex; flex-direction: column; gap: 8px; padding-bottom: 40px; }
 
   .task {
@@ -189,9 +197,11 @@
   .task.urgent { border-left-color: var(--red); }
   .task.soon { border-left-color: var(--amber); }
   .task.later { border-left-color: var(--border); }
+  .task.inprogress { border-left-color: var(--blue); }
   .task.done-task { opacity: 0.4; }
 
-  .task-row { display: flex; align-items: flex-start; gap: 12px; }
+  .task-row { display: flex; align-items: flex-start; gap: 10px; }
+
   .check {
     width: 22px; height: 22px;
     border: 1.5px solid var(--border2);
@@ -206,6 +216,26 @@
   .check.done { background: var(--text); border-color: var(--text); }
   .check.done::after { content: ''; width: 6px; height: 6px; border-right: 2px solid var(--bg); border-bottom: 2px solid var(--bg); transform: rotate(45deg) translate(-1px,-1px); display: block; }
 
+  .inprogress-btn {
+    width: 22px; height: 22px;
+    border: 1.5px solid var(--border2);
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+    transition: background 0.1s, border-color 0.1s;
+    font-size: 12px;
+    color: var(--text3);
+  }
+  .inprogress-btn.active {
+    background: var(--blue-bg);
+    border-color: var(--blue);
+    color: var(--blue-text);
+  }
+  .inprogress-btn.active::after { content: '⏳'; font-size: 11px; }
+
   .task-body { flex: 1; min-width: 0; }
   .task-text { font-size: 15px; line-height: 1.45; color: var(--text); }
   .task-text.struck { text-decoration: line-through; color: var(--text3); }
@@ -215,6 +245,7 @@
   .badge.urgent { background: var(--red-bg); color: var(--red-text); }
   .badge.soon { background: var(--amber-bg); color: var(--amber-text); }
   .badge.later { background: var(--bg2); color: var(--text2); }
+  .badge.inprogress { background: var(--blue-bg); color: var(--blue-text); }
   .meta-chip { font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 3px; }
   .meta-chip i { font-size: 13px; }
 
@@ -246,7 +277,6 @@
     align-items: flex-end;
   }
   .overlay.open { display: flex; }
-
   .modal {
     background: var(--bg);
     border-radius: 20px;
@@ -258,7 +288,6 @@
   .modal h3 { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
   .modal label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px; margin-top: 14px; }
   .modal label:first-of-type { margin-top: 0; }
-
   .modal input[type=text],
   .modal input[type=datetime-local],
   .modal select {
@@ -273,7 +302,6 @@
     -webkit-appearance: none;
   }
   .modal input:focus, .modal select:focus { outline: none; border-color: var(--text3); }
-
   .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
   .modal-btns button {
     flex: 1; padding: 14px;
@@ -293,70 +321,92 @@
   }
   .modal-btns button:active { opacity: 0.8; }
 
-  /* Install banner */
-  .install-banner {
-    background: var(--bg2);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    margin: 12px 0;
-    font-size: 13px;
-    color: var(--text2);
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    border: 0.5px solid var(--border);
+  /* LANDSCAPE layout */
+  @media (orientation: landscape) {
+    body { overflow: hidden; height: 100vh; }
+    .app {
+      max-width: 100%;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: 100vh;
+      padding: 0;
+      gap: 0;
+    }
+    .left-col {
+      padding: 24px 16px 16px;
+      border-right: 0.5px solid var(--border);
+      overflow-y: auto;
+      height: 100vh;
+    }
+    .right-col {
+      padding: 16px;
+      overflow-y: auto;
+      height: 100vh;
+    }
+    .header {
+      position: static;
+      padding: 0 0 12px;
+      margin: 0;
+      border-bottom: 0.5px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .stats { grid-template-columns: 1fr 1fr; padding: 0 0 12px; }
+    .add-area { padding-bottom: 8px; }
+    .filters { padding: 4px 0 8px; }
+    .tasks { padding-bottom: 20px; }
   }
-  .install-banner i { font-size: 20px; flex-shrink: 0; margin-top: 1px; color: var(--text3); }
-  .install-banner strong { color: var(--text); }
-  .install-close { margin-left: auto; font-size: 20px; cursor: pointer; flex-shrink: 0; color: var(--text3); background: none; border: none; font-family: inherit; }
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
 
-  <div class="header">
-    <div class="greeting" id="greeting">Dzień dobry, Maciej</div>
-    <div class="dateline" id="dateline"></div>
-  </div>
-
-  <div id="installBanner" class="install-banner" style="margin-top:12px">
-    <i class="ti ti-info-circle"></i>
-    <div><strong>Dodaj do ekranu głównego</strong><br>Safari → ikona udostępniania → „Dodaj do ekranu głównego" → masz apkę na iPhonie</div>
-    <button class="install-close" onclick="document.getElementById('installBanner').remove()" aria-label="Zamknij">×</button>
-  </div>
-
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-num red" id="cUrgent">0</div>
-      <div class="stat-label">Pilne dziś</div>
+  <!-- PORTRAIT: single column. LANDSCAPE: split via JS -->
+  <div class="left-col" id="leftCol">
+    <div class="header">
+      <div class="greeting" id="greeting">Dzień dobry, Maciej</div>
+      <div class="dateline" id="dateline"></div>
     </div>
-    <div class="stat">
-      <div class="stat-num" id="cTotal">0</div>
-      <div class="stat-label">Aktywnych spraw</div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num red" id="cUrgent">0</div>
+        <div class="stat-label">Pilne dziś</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="cTotal">0</div>
+        <div class="stat-label">Aktywnych spraw</div>
+        <button class="sort-btn" onclick="toggleSort()" id="sortBtn" title="Sortowanie" aria-label="Zmień sortowanie">
+          <i class="ti ti-arrows-sort"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="add-area">
+      <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
+        <i class="ti ti-microphone"></i>
+        <span id="voiceLabel">Powiedz co masz do zrobienia</span>
+      </button>
+      <div class="transcript" id="transcript"></div>
+      <div class="manual-row">
+        <input class="manual-input" id="manualInput" type="text" placeholder="lub wpisz sprawę..." />
+        <button class="add-btn" onclick="addManual()" aria-label="Dodaj"><i class="ti ti-plus"></i></button>
+      </div>
+    </div>
+
+    <div class="filters">
+      <button class="filter-btn active" onclick="setFilter('all',this)">Wszystkie</button>
+      <button class="filter-btn" onclick="setFilter('urgent',this)">🔴 Pilne</button>
+      <button class="filter-btn" onclick="setFilter('soon',this)">🟡 Ten tydzień</button>
+      <button class="filter-btn" onclick="setFilter('inprogress',this)">⏳ W toku</button>
+      <button class="filter-btn" onclick="setFilter('later',this)">Może poczekać</button>
+      <button class="filter-btn" onclick="setFilter('done',this)">✓ Zrobione</button>
     </div>
   </div>
 
-  <div class="add-area">
-    <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
-      <i class="ti ti-microphone"></i>
-      <span id="voiceLabel">Powiedz co masz do zrobienia</span>
-    </button>
-    <div class="transcript" id="transcript"></div>
-    <div class="manual-row">
-      <input class="manual-input" id="manualInput" type="text" placeholder="lub wpisz sprawę..." />
-      <button class="add-btn" onclick="addManual()" aria-label="Dodaj"><i class="ti ti-plus"></i></button>
-    </div>
+  <div class="right-col" id="rightCol">
+    <div class="tasks" id="tasksList"></div>
   </div>
 
-  <div class="filters">
-    <button class="filter-btn active" onclick="setFilter('all',this)">Wszystkie</button>
-    <button class="filter-btn" onclick="setFilter('urgent',this)">🔴 Pilne</button>
-    <button class="filter-btn" onclick="setFilter('soon',this)">🟡 Ten tydzień</button>
-    <button class="filter-btn" onclick="setFilter('later',this)">Może poczekać</button>
-    <button class="filter-btn" onclick="setFilter('done',this)">✓ Zrobione</button>
-  </div>
-
-  <div class="tasks" id="tasksList"></div>
 </div>
 
 <!-- Modal -->
@@ -386,12 +436,12 @@
 <script>
 var tasks = JSON.parse(localStorage.getItem('md_tasks') || '[]');
 var filter = 'all';
+var sortOrder = 'newest';
 var editId = null;
 var rec = null;
 var listening = false;
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
-
 function save() { localStorage.setItem('md_tasks', JSON.stringify(tasks)); }
 
 function setHeader() {
@@ -405,9 +455,9 @@ function setHeader() {
 }
 
 function counts() {
-  var act = tasks.filter(function(t){ return !t.done; });
+  var act = tasks.filter(function(t){ return !t.done && !t.inprogress; });
   document.getElementById('cUrgent').textContent = act.filter(function(t){ return t.priority==='urgent'; }).length;
-  document.getElementById('cTotal').textContent = act.length;
+  document.getElementById('cTotal').textContent = tasks.filter(function(t){ return !t.done; }).length;
 }
 
 function fmtDate(r) {
@@ -417,10 +467,18 @@ function fmtDate(r) {
   return dni[d.getDay()] + ' ' + d.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
 }
 
-function badgeHTML(p) {
-  if (p==='urgent') return '<span class="badge urgent">Pilne</span>';
-  if (p==='soon') return '<span class="badge soon">Ten tydzień</span>';
+function badgeHTML(t) {
+  if (t.inprogress) return '<span class="badge inprogress">W toku</span>';
+  if (t.priority==='urgent') return '<span class="badge urgent">Pilne</span>';
+  if (t.priority==='soon') return '<span class="badge soon">Ten tydzień</span>';
   return '<span class="badge later">Może poczekać</span>';
+}
+
+function toggleSort() {
+  sortOrder = sortOrder === 'newest' ? 'oldest' : 'newest';
+  var btn = document.getElementById('sortBtn');
+  btn.title = sortOrder === 'newest' ? 'Najnowsze pierwsze' : 'Najstarsze pierwsze';
+  render();
 }
 
 function render() {
@@ -428,22 +486,29 @@ function render() {
   var list = document.getElementById('tasksList');
   var vis;
   if (filter==='done') vis = tasks.filter(function(t){ return t.done; });
-  else if (filter==='all') vis = tasks.filter(function(t){ return !t.done; });
-  else vis = tasks.filter(function(t){ return !t.done && t.priority===filter; });
+  else if (filter==='inprogress') vis = tasks.filter(function(t){ return !t.done && t.inprogress; });
+  else if (filter==='all') vis = tasks.filter(function(t){ return !t.done && !t.inprogress; });
+  else vis = tasks.filter(function(t){ return !t.done && !t.inprogress && t.priority===filter; });
 
-  if (!vis.length) {
+  var sorted = vis.slice().sort(function(a,b){
+    return sortOrder === 'newest' ? b.created - a.created : a.created - b.created;
+  });
+
+  if (!sorted.length) {
     list.innerHTML = '<div class="empty"><i class="ti ti-checklist"></i><p>Brak spraw w tej kategorii</p></div>';
     return;
   }
 
-  list.innerHTML = vis.map(function(t) {
-    return '<div class="task ' + t.priority + (t.done?' done-task':'') + '">' +
+  list.innerHTML = sorted.map(function(t) {
+    var borderClass = t.inprogress ? 'inprogress' : t.priority;
+    return '<div class="task ' + borderClass + (t.done?' done-task':'') + '">' +
       '<div class="task-row">' +
-        '<div class="check ' + (t.done?'done':'') + '" onclick="toggleDone(\'' + t.id + '\')"></div>' +
+        '<div class="check ' + (t.done?'done':'') + '" onclick="toggleDone(\'' + t.id + '\')" title="Zamknij sprawę" aria-label="Oznacz jako zrobione"></div>' +
+        '<div class="inprogress-btn ' + (t.inprogress?'active':'') + '" onclick="toggleInprogress(\'' + t.id + '\')" title="W toku — czekam na reakcję" aria-label="W toku"></div>' +
         '<div class="task-body">' +
           '<div class="task-text' + (t.done?' struck':'') + '">' + esc(t.text) + '</div>' +
           '<div class="task-meta">' +
-            badgeHTML(t.priority) +
+            badgeHTML(t) +
             (t.contact ? '<span class="meta-chip"><i class="ti ti-user"></i>' + esc(t.contact) + '</span>' : '') +
             (t.reminder ? '<span class="meta-chip"><i class="ti ti-bell"></i>' + fmtDate(t.reminder) + '</span>' : '') +
           '</div>' +
@@ -470,7 +535,12 @@ function setFilter(f, btn) {
 
 function toggleDone(id) {
   var t = tasks.find(function(t){ return t.id===id; });
-  if (t) { t.done = !t.done; save(); render(); }
+  if (t) { t.done = !t.done; t.inprogress = false; save(); render(); }
+}
+
+function toggleInprogress(id) {
+  var t = tasks.find(function(t){ return t.id===id; });
+  if (t) { t.inprogress = !t.inprogress; save(); render(); }
 }
 
 function del(id) {
@@ -517,7 +587,7 @@ function saveModal() {
     var t = tasks.find(function(t){ return t.id===editId; });
     if (t) { t.text=text; t.priority=priority; t.reminder=reminder; t.contact=contact; }
   } else {
-    tasks.unshift({ id:uid(), text:text, priority:priority, reminder:reminder, contact:contact, done:false, created:Date.now() });
+    tasks.unshift({ id:uid(), text:text, priority:priority, reminder:reminder, contact:contact, done:false, inprogress:false, created:Date.now() });
   }
   if (reminder) scheduleNotif(text, reminder);
   save(); closeModal(); render();
@@ -552,7 +622,7 @@ function scheduleNotif(text, reminderStr) {
 function toggleVoice() {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    alert('Rozpoznawanie głosu działa w Safari 15+ na iPhonie. Upewnij się, że używasz Safari.');
+    alert('Rozpoznawanie głosu działa w Safari 15+ na iPhonie.');
     return;
   }
   if (listening) { rec && rec.stop(); return; }
@@ -573,12 +643,10 @@ function toggleVoice() {
     tr.textContent = '...';
     tr.classList.add('show');
   };
-
   rec.onresult = function(e) {
     var t = Array.from(e.results).map(function(r){ return r[0].transcript; }).join('');
     tr.textContent = t;
   };
-
   rec.onend = function() {
     listening = false;
     btn.classList.remove('listening');
@@ -587,18 +655,49 @@ function toggleVoice() {
     tr.classList.remove('show');
     if (t && t !== '...') openAdd(t);
   };
-
   rec.onerror = function() {
     listening = false;
     btn.classList.remove('listening');
     label.textContent = 'Powiedz co masz do zrobienia';
     tr.classList.remove('show');
   };
-
   rec.start();
 }
 
+/* Landscape: move tasks list to right column */
+function applyLayout() {
+  var landscape = window.innerWidth > window.innerHeight;
+  var app = document.getElementById('app');
+  var leftCol = document.getElementById('leftCol');
+  var rightCol = document.getElementById('rightCol');
+  var tasksList = document.getElementById('tasksList');
+
+  if (landscape) {
+    app.style.display = 'grid';
+    app.style.gridTemplateColumns = '300px 1fr';
+    app.style.maxWidth = '100%';
+    leftCol.style.overflowY = 'auto';
+    leftCol.style.height = '100vh';
+    rightCol.style.overflowY = 'auto';
+    rightCol.style.height = '100vh';
+    if (!rightCol.contains(tasksList)) rightCol.appendChild(tasksList);
+  } else {
+    app.style.display = '';
+    app.style.gridTemplateColumns = '';
+    app.style.maxWidth = '';
+    leftCol.style.overflowY = '';
+    leftCol.style.height = '';
+    rightCol.style.overflowY = '';
+    rightCol.style.height = '';
+    if (!leftCol.contains(tasksList)) leftCol.appendChild(tasksList);
+  }
+}
+
+window.addEventListener('orientationchange', function(){ setTimeout(applyLayout, 150); });
+window.addEventListener('resize', applyLayout);
+
 setHeader();
+applyLayout();
 render();
 </script>
 </body>
