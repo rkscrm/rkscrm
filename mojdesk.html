@@ -363,8 +363,21 @@
   <!-- PORTRAIT: single column. LANDSCAPE: split via JS -->
   <div class="left-col" id="leftCol">
     <div class="header">
-      <div class="greeting" id="greeting">Dzień dobry, Maciej</div>
-      <div class="dateline" id="dateline"></div>
+      <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+        <div>
+          <div class="greeting" id="greeting">Dzień dobry, Maciej</div>
+          <div class="dateline" id="dateline"></div>
+        </div>
+        <div style="display:flex; gap:6px; margin-top:4px; flex-shrink:0;">
+          <button onclick="exportData()" title="Eksportuj kopię zapasową" aria-label="Eksportuj" style="background:none; border:0.5px solid var(--border2); border-radius:8px; padding:6px 10px; cursor:pointer; color:var(--text2); font-size:13px; font-family:inherit; display:flex; align-items:center; gap:4px;">
+            <i class="ti ti-download" style="font-size:15px;"></i> Eksport
+          </button>
+          <button onclick="document.getElementById('importInput').click()" title="Importuj kopię zapasową" aria-label="Importuj" style="background:none; border:0.5px solid var(--border2); border-radius:8px; padding:6px 10px; cursor:pointer; color:var(--text2); font-size:13px; font-family:inherit; display:flex; align-items:center; gap:4px;">
+            <i class="ti ti-upload" style="font-size:15px;"></i> Import
+          </button>
+          <input type="file" id="importInput" accept=".json" style="display:none;" onchange="importData(event)" />
+        </div>
+      </div>
     </div>
 
     <div class="stats">
@@ -695,6 +708,39 @@ function applyLayout() {
 
 window.addEventListener('orientationchange', function(){ setTimeout(applyLayout, 150); });
 window.addEventListener('resize', applyLayout);
+
+function exportData() {
+  var data = JSON.stringify(tasks, null, 2);
+  var blob = new Blob([data], {type: 'application/json'});
+  var url = URL.createObjectURL(blob);
+  var d = new Date();
+  var fname = 'mojdesk_' + d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + '.json';
+  var a = document.createElement('a');
+  a.href = url; a.download = fname;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var imported = JSON.parse(ev.target.result);
+      if (!Array.isArray(imported)) throw new Error();
+      if (!confirm('Importować ' + imported.length + ' spraw? Obecna lista zostanie zastąpiona.')) return;
+      tasks = imported;
+      save();
+      render();
+      alert('Import zakończony. Wczytano ' + imported.length + ' spraw.');
+    } catch(err) {
+      alert('Błąd pliku. Upewnij się, że to prawidłowy plik eksportu z MójDesk.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
 
 setHeader();
 applyLayout();
